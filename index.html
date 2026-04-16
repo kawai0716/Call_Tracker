@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>架電カウンター</title>
-    <link rel="stylesheet" href="./assets/css/style.css?v=20260416-11" />
+    <link rel="stylesheet" href="./assets/css/style.css?v=20260416-12" />
   </head>
   <body>
     <div class="background-glow background-glow-left"></div>
@@ -228,11 +228,13 @@
         <div class="recording-toolbar">
           <div class="recording-status-wrap">
             <p class="recording-status" id="recordingStatusText">マイク録音は停止中です</p>
+            <p class="recording-timer" id="recordingTimerText">00:00</p>
             <p class="inline-note">最新5件だけ履歴に残ります。残したいものはダウンロードしてください。</p>
           </div>
           <div class="recording-actions">
-            <button class="accent-button" id="startRecordingButton" type="button">録音開始</button>
-            <button class="danger-button" id="stopRecordingButton" type="button" disabled>録音停止</button>
+            <button class="accent-button recording-toggle-button" id="toggleRecordingButton" type="button">
+              録音開始
+            </button>
           </div>
         </div>
 
@@ -324,6 +326,6 @@
 
     <div class="toast" id="toast"></div>
 
-    <script src="./assets/js/app.js?v=20260416-11"></script>
+    <script src="./assets/js/app.js?v=20260416-12"></script>
   </body>
 </html>

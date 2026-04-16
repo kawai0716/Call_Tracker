@@ -46,8 +46,8 @@ const elements = {
   copyTemplateButton: document.getElementById("copyTemplateButton"),
   templatePreview: document.getElementById("templatePreview"),
   recordingStatusText: document.getElementById("recordingStatusText"),
-  startRecordingButton: document.getElementById("startRecordingButton"),
-  stopRecordingButton: document.getElementById("stopRecordingButton"),
+  recordingTimerText: document.getElementById("recordingTimerText"),
+  toggleRecordingButton: document.getElementById("toggleRecordingButton"),
   recordingHistory: document.getElementById("recordingHistory"),
   pageTabs: Array.from(document.querySelectorAll("[data-page-tab]")),
   pagePanels: Array.from(document.querySelectorAll("[data-page-panel]")),
@@ -66,6 +66,8 @@ const recordingState = {
   chunks: [],
   recordings: [],
   objectUrls: new Map(),
+  startedAt: null,
+  timerId: null,
 };
 let toastTimer = null;
 
@@ -391,23 +393,67 @@ function renderRecordingStatus(text, isLive = false) {
   elements.recordingStatusText.classList.toggle("is-live", isLive);
 }
 
+function formatRecordingDuration(milliseconds) {
+  const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
+  const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
+  const seconds = String(totalSeconds % 60).padStart(2, "0");
+  return `${minutes}:${seconds}`;
+}
+
+function updateRecordingTimer() {
+  if (!recordingState.startedAt) {
+    elements.recordingTimerText.textContent = "00:00";
+    elements.recordingTimerText.classList.remove("is-live");
+    return;
+  }
+
+  elements.recordingTimerText.textContent = formatRecordingDuration(Date.now() - recordingState.startedAt);
+  elements.recordingTimerText.classList.toggle("is-live", recordingState.isRecording);
+}
+
+function clearRecordingTimer() {
+  if (recordingState.timerId) {
+    window.clearInterval(recordingState.timerId);
+    recordingState.timerId = null;
+  }
+}
+
+function startRecordingTimer() {
+  clearRecordingTimer();
+  recordingState.startedAt = Date.now();
+  updateRecordingTimer();
+  recordingState.timerId = window.setInterval(updateRecordingTimer, 1000);
+}
+
+function resetRecordingTimer() {
+  clearRecordingTimer();
+  recordingState.startedAt = null;
+  updateRecordingTimer();
+}
+
 function renderRecordingControls() {
   if (!recordingState.isSupported) {
-    elements.startRecordingButton.disabled = true;
-    elements.stopRecordingButton.disabled = true;
+    elements.toggleRecordingButton.disabled = true;
+    elements.toggleRecordingButton.textContent = "録音非対応";
+    elements.toggleRecordingButton.classList.remove("is-recording");
     renderRecordingStatus("このブラウザでは録音に対応していません");
+    resetRecordingTimer();
     return;
   }
 
-  elements.startRecordingButton.disabled = recordingState.isRecording;
-  elements.stopRecordingButton.disabled = !recordingState.isRecording;
+  elements.toggleRecordingButton.disabled = false;
+  elements.toggleRecordingButton.classList.toggle("is-recording", recordingState.isRecording);
 
   if (recordingState.isRecording) {
-    renderRecordingStatus("録音中です。1件分が終わったら停止してください。", true);
+    elements.toggleRecordingButton.textContent = "録音停止";
+    renderRecordingStatus("録音中です。赤い表示とタイマーで状態を確認できます。", true);
+    updateRecordingTimer();
     return;
   }
 
+  elements.toggleRecordingButton.textContent = "録音開始";
   renderRecordingStatus("マイク録音は停止中です");
+  resetRecordingTimer();
 }
 
 function createRecordingHistoryItem(entry) {
@@ -504,8 +550,7 @@ async function refreshRecordingHistory() {
   } catch (error) {
     console.error("Failed to refresh recordings:", error);
     renderRecordingStatus("録音履歴を読み込めませんでした");
-    elements.startRecordingButton.disabled = true;
-    elements.stopRecordingButton.disabled = true;
+    elements.toggleRecordingButton.disabled = true;
   }
 }
 
@@ -539,6 +584,7 @@ async function startRecording() {
     recordingState.mediaRecorder = mediaRecorder;
     recordingState.chunks = [];
     recordingState.isRecording = true;
+    startRecordingTimer();
 
     mediaRecorder.ondataavailable = (event) => {
       if (event.data?.size) {
@@ -552,6 +598,7 @@ async function startRecording() {
       recordingState.mediaRecorder = null;
       recordingState.chunks = [];
       recordingState.isRecording = false;
+      resetRecordingTimer();
       renderRecordingHistory();
       showToast("録音中にエラーが発生しました", true);
     };
@@ -564,6 +611,7 @@ async function startRecording() {
       recordingState.mediaRecorder = null;
       recordingState.chunks = [];
       recordingState.isRecording = false;
+      resetRecordingTimer();
 
       if (!chunks.length) {
         renderRecordingHistory();
@@ -591,6 +639,7 @@ async function startRecording() {
     recordingState.mediaRecorder = null;
     recordingState.chunks = [];
     recordingState.isRecording = false;
+    resetRecordingTimer();
     renderRecordingHistory();
     showToast("マイク権限を許可してから再度お試しください", true);
   }
@@ -601,9 +650,21 @@ function stopRecording() {
     return;
   }
 
-  recordingState.mediaRecorder.stop();
+  recordingState.isRecording = false;
+  renderRecordingControls();
   renderRecordingStatus("録音を保存しています…");
-  elements.stopRecordingButton.disabled = true;
+  clearRecordingTimer();
+  recordingState.mediaRecorder.stop();
+  elements.toggleRecordingButton.disabled = true;
+}
+
+function toggleRecording() {
+  if (recordingState.isRecording) {
+    stopRecording();
+    return;
+  }
+
+  startRecording();
 }
 
 async function deleteRecording(recordingId) {
@@ -1309,8 +1370,7 @@ document.addEventListener("click", (event) => {
 
 elements.exportButton.addEventListener("click", exportCsv);
 elements.advanceBusinessDayButton.addEventListener("click", advanceBusinessDay);
-elements.startRecordingButton.addEventListener("click", startRecording);
-elements.stopRecordingButton.addEventListener("click", stopRecording);
+elements.toggleRecordingButton.addEventListener("click", toggleRecording);
 elements.addLocationButton.addEventListener("click", addLocationOption);
 elements.locationSelect.addEventListener("change", () => {
   elements.templatePreview.value = buildTemplate();
