@@ -9,7 +9,6 @@ const elements = {
   updatedAtLabel: document.getElementById("updatedAtLabel"),
   storageStatusLabel: document.getElementById("storageStatusLabel"),
   heroTodayPanel: document.getElementById("heroTodayPanel"),
-  profileNameInput: document.getElementById("profileNameInput"),
   exportButton: document.getElementById("exportButton"),
   advanceBusinessDayButton: document.getElementById("advanceBusinessDayButton"),
   resetTodayButton: document.getElementById("resetTodayButton"),
@@ -72,10 +71,9 @@ let toastTimer = null;
 
 function createDefaultState() {
   return {
-    profileName: "",
     records: {},
     dailyGoals: {},
-    locationOptions: ["自宅", "TIB"],
+    locationOptions: ["自宅"],
     selectedHistoryMonth: "",
     activePage: "dashboard",
     businessDayOverride: null,
@@ -104,9 +102,6 @@ function sanitizeState(candidate) {
   if (!candidate || typeof candidate !== "object") {
     return base;
   }
-
-  base.profileName =
-    typeof candidate.profileName === "string" ? candidate.profileName.trim().slice(0, 24) : "";
 
   if (candidate.records && typeof candidate.records === "object") {
     for (const [dateKey, record] of Object.entries(candidate.records)) {
@@ -138,7 +133,7 @@ function sanitizeState(candidate) {
     const options = candidate.locationOptions
       .map((option) => (typeof option === "string" ? option.trim().slice(0, 40) : ""))
       .filter(Boolean);
-    base.locationOptions = Array.from(new Set(["自宅", "TIB", ...options]));
+    base.locationOptions = Array.from(new Set(["自宅", ...options.filter((option) => option !== "TIB")]));
   }
 
   base.selectedHistoryMonth =
@@ -380,8 +375,7 @@ function getRecordingDownloadName(entry) {
   const day = String(stamp.getDate()).padStart(2, "0");
   const hour = String(stamp.getHours()).padStart(2, "0");
   const minute = String(stamp.getMinutes()).padStart(2, "0");
-  const profile = (entry.profileName || state.profileName || "voice").replace(/[\\/:*?"<>|]/g, "_");
-  return `${profile}-${year}${month}${day}-${hour}${minute}.${getRecordingFileExtension(entry.mimeType)}`;
+  return `voice-${year}${month}${day}-${hour}${minute}.${getRecordingFileExtension(entry.mimeType)}`;
 }
 
 function releaseRecordingStream() {
@@ -429,9 +423,7 @@ function createRecordingHistoryItem(entry) {
   title.textContent = `${formatShortDate(entry.dateKey)} ${formatTime(entry.createdAt)} の録音`;
   const meta = document.createElement("p");
   meta.className = "recording-meta";
-  meta.textContent = `${formatRecordingDateTime(entry.createdAt)} / ${formatRecordingSize(entry.size)}${
-    entry.profileName ? ` / ${entry.profileName}` : ""
-  }`;
+  meta.textContent = `${formatRecordingDateTime(entry.createdAt)} / ${formatRecordingSize(entry.size)}`;
 
   info.append(title, meta);
 
@@ -524,7 +516,6 @@ async function saveRecordingBlob(blob, mimeType) {
     dateKey: getTodayKey(),
     mimeType: mimeType || blob.type || "audio/webm",
     size: blob.size,
-    profileName: state.profileName || "",
     blob,
   };
 
@@ -1059,7 +1050,6 @@ function render() {
     ? `${formatDate(todayKey)} ${formatTime(todayRecord.updatedAt)}`
     : "まだ記録されていません";
   elements.storageStatusLabel.textContent = "ブラウザ内";
-  elements.profileNameInput.value = state.profileName || "";
   elements.todayCallsValue.textContent = todayRecord.calls;
   elements.todayConnectionsValue.textContent = todayRecord.connections;
   elements.todaySampleSentValue.textContent = todayRecord.sampleSent;
@@ -1216,10 +1206,9 @@ function exportCsv() {
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
-  const fileName = state.profileName || "personal";
 
   link.href = url;
-  link.download = `call-tracker-${fileName.replace(/[\\/:*?"<>|]/g, "_")}-${getTodayKey()}.csv`;
+  link.download = `call-tracker-${getTodayKey()}.csv`;
   document.body.appendChild(link);
   link.click();
   link.remove();
@@ -1316,11 +1305,6 @@ document.addEventListener("click", (event) => {
       decrementIntroductions(record);
     });
   }
-});
-
-elements.profileNameInput.addEventListener("input", () => {
-  state.profileName = elements.profileNameInput.value.trim().slice(0, 24);
-  saveState();
 });
 
 elements.exportButton.addEventListener("click", exportCsv);
