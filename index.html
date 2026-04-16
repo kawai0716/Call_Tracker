@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>架電カウンター</title>
+    <link rel="stylesheet" href="./assets/css/style.css?v=20260416-9" />
+  </head>
+  <body>
+    <div class="background-glow background-glow-left"></div>
+    <div class="background-glow background-glow-right"></div>
+
+    <main class="app-shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Personal Call Tracker</p>
+          <h1>架電カウンター</h1>
+          <p class="hero-copy">
+            この端末のブラウザにだけ保存します。日報テンプレートもそのままコピーできます。
+          </p>
+        </div>
+
+        <div class="hero-panel" id="heroTodayPanel">
+          <p class="hero-date-label">対象日</p>
+          <p class="hero-date" id="todayLabel">-</p>
+          <p class="hero-updated">
+            最終更新:
+            <span id="updatedAtLabel">読み込み中</span>
+          </p>
+          <p class="hero-updated hero-status">
+            保存:
+            <span id="storageStatusLabel">ブラウザ内</span>
+          </p>
+        </div>
+      </header>
+
+      <nav class="page-nav" aria-label="ページ切り替え">
+        <button class="page-tab is-active" type="button" data-page-tab="dashboard">架電カウンター</button>
+        <button class="page-tab" type="button" data-page-tab="recording">録音メモ</button>
+        <button class="page-tab" type="button" data-page-tab="history">履歴</button>
+      </nav>
+
+      <section class="panel control-panel" data-page-panel="dashboard">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Profile</p>
+            <h2>基本設定</h2>
+          </div>
+          <div class="toolbar">
+            <button class="secondary-button" id="exportButton">CSV出力</button>
+            <button class="secondary-button" id="advanceBusinessDayButton">報告済みで次の日へ</button>
+            <button class="danger-button" id="resetTodayButton">今日をリセット</button>
+          </div>
+        </div>
+
+        <div class="control-grid control-grid-single">
+          <label class="field">
+            <span class="field-label">担当者名</span>
+            <input
+              id="profileNameInput"
+              class="field-input"
+              maxlength="24"
+              placeholder="例: 河井"
+            />
+          </label>
+        </div>
+      </section>
+
+      <section class="panel quick-actions" data-page-panel="dashboard">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Quick Entry</p>
+            <h2>成功内容に応じて記録</h2>
+          </div>
+        </div>
+
+        <div class="action-grid">
+          <article class="action-card action-call">
+            <span class="action-title">架電</span>
+            <span class="action-note">架電件数だけを増減</span>
+            <div class="quick-buttons">
+              <button class="mini-button" data-action="log-call-minus">-1</button>
+              <button class="mini-button" data-action="log-call-plus">+1</button>
+            </div>
+          </article>
+          <article class="action-card action-connect">
+            <span class="action-title">担当者接続</span>
+            <span class="action-note">架電と担当者接続を同時に増減</span>
+            <div class="quick-buttons">
+              <button class="mini-button" data-action="log-connect-minus">-1</button>
+              <button class="mini-button" data-action="log-connect-plus">+1</button>
+            </div>
+          </article>
+          <article class="action-card action-sample">
+            <span class="action-title">サンプル送付</span>
+            <span class="action-note">架電、接続、サンプル送付を同時に増減</span>
+            <div class="quick-buttons">
+              <button class="mini-button" data-action="log-sample-minus">-1</button>
+              <button class="mini-button" data-action="log-sample-plus">+1</button>
+            </div>
+          </article>
+          <article class="action-card action-introduction">
+            <span class="action-title">導入</span>
+            <span class="action-note">架電と導入だけを同時に増減</span>
+            <div class="quick-buttons">
+              <button class="mini-button" data-action="log-introduction-minus">-1</button>
+              <button class="mini-button" data-action="log-introduction-plus">+1</button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="stats-grid" data-page-panel="dashboard">
+        <article class="panel stat-card">
+          <p class="stat-label">架電件数</p>
+          <p class="stat-value" id="todayCallsValue">0</p>
+        </article>
+
+        <article class="panel stat-card">
+          <p class="stat-label">担当者接続</p>
+          <p class="stat-value" id="todayConnectionsValue">0</p>
+        </article>
+
+        <article class="panel stat-card">
+          <p class="stat-label">サンプル送付数</p>
+          <p class="stat-value" id="todaySampleSentValue">0</p>
+        </article>
+
+        <article class="panel stat-card">
+          <p class="stat-label">導入件数</p>
+          <p class="stat-value" id="todayIntroductionsValue">0</p>
+        </article>
+
+        <article class="panel summary-card">
+          <p class="summary-label">接続率</p>
+          <p class="summary-value" id="todayConnectionRateValue">0%</p>
+          <p class="summary-subtext" id="todayPaceText">架電に対する担当者接続率です</p>
+        </article>
+
+        <article class="panel summary-card summary-card-alt">
+          <p class="summary-label">サンプル送付率</p>
+          <p class="summary-value" id="todaySampleRateValue">0%</p>
+          <p class="summary-subtext" id="todaySampleRateText">架電に対するサンプル送付率です</p>
+        </article>
+      </section>
+
+      <section class="panel goals-panel" data-page-panel="dashboard">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Daily Goals</p>
+            <h2>今日の目標</h2>
+          </div>
+          <p class="month-indicator" id="monthLabel">-</p>
+        </div>
+
+        <div class="goal-grid">
+          <label class="field">
+            <span class="field-label">架電件数目標</span>
+            <input id="goalCallsInput" class="field-input" inputmode="numeric" placeholder="20" />
+          </label>
+          <label class="field">
+            <span class="field-label">サンプル送付目標</span>
+            <input id="goalSampleSentInput" class="field-input" inputmode="numeric" placeholder="1" />
+          </label>
+          <label class="field">
+            <span class="field-label">導入目標</span>
+            <input id="goalIntroductionsInput" class="field-input" inputmode="numeric" placeholder="2" />
+          </label>
+          <label class="field">
+            <span class="field-label">担当者接続目標</span>
+            <input id="goalConnectionsInput" class="field-input" inputmode="numeric" placeholder="4" />
+          </label>
+        </div>
+
+        <div class="section-actions">
+          <button class="accent-button" id="saveGoalsButton">今日の目標を保存</button>
+          <p class="inline-note" id="goalsStatusText">今日の目標を保存してください。</p>
+        </div>
+      </section>
+
+      <section class="panel report-panel" data-page-panel="dashboard">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Report</p>
+            <h2>Slack コピーテンプレート</h2>
+          </div>
+        </div>
+
+        <div class="report-grid">
+          <label class="field">
+            <span class="field-label">稼働場所</span>
+            <select id="locationSelect" class="field-input"></select>
+          </label>
+          <div class="field">
+            <span class="field-label">稼働場所を追加</span>
+            <div class="inline-form">
+              <input
+                id="newLocationInput"
+                class="field-input"
+                maxlength="40"
+                placeholder="例: WeWork"
+              />
+              <button class="secondary-button" id="addLocationButton" type="button">追加</button>
+            </div>
+          </div>
+          <label class="field">
+            <span class="field-label">実稼働時間</span>
+            <input id="workedHoursInput" class="field-input" maxlength="16" placeholder="例: 1" />
+          </label>
+          <label class="field report-field-full">
+            <span class="field-label">振り返り</span>
+            <textarea
+              id="reflectionInput"
+              class="field-textarea"
+              rows="6"
+              placeholder="今日の振り返りを入力"
+            ></textarea>
+          </label>
+        </div>
+
+        <div class="section-actions">
+          <button class="secondary-button" id="saveMemoButton">日報メモを保存</button>
+          <button class="accent-button" id="copyTemplateButton">テンプレートをコピー</button>
+        </div>
+
+        <label class="field preview-field">
+          <span class="field-label">コピー内容プレビュー</span>
+          <textarea id="templatePreview" class="field-textarea preview-textarea" rows="14" readonly></textarea>
+        </label>
+      </section>
+
+      <section class="panel recording-panel" data-page-panel="recording" hidden>
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Voice Check</p>
+            <h2>録音メモ</h2>
+          </div>
+        </div>
+
+        <div class="recording-toolbar">
+          <div class="recording-status-wrap">
+            <p class="recording-status" id="recordingStatusText">マイク録音は停止中です</p>
+            <p class="inline-note">最新5件だけ履歴に残ります。残したいものはダウンロードしてください。</p>
+          </div>
+          <div class="recording-actions">
+            <button class="accent-button" id="startRecordingButton" type="button">録音開始</button>
+            <button class="danger-button" id="stopRecordingButton" type="button" disabled>録音停止</button>
+          </div>
+        </div>
+
+        <div class="recording-history" id="recordingHistory">
+          <p class="empty-recording">録音履歴はまだありません</p>
+        </div>
+      </section>
+
+      <section class="panel history-panel" data-page-panel="history" hidden>
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">History</p>
+            <h2>履歴</h2>
+          </div>
+          <label class="field history-month-field">
+            <span class="field-label">表示月</span>
+            <select id="historyMonthSelect" class="field-input"></select>
+          </label>
+        </div>
+
+        <section class="stats-grid history-stats-grid">
+          <article class="panel stat-card">
+            <p class="stat-label">累計架電件数</p>
+            <p class="stat-value" id="callsValue">0</p>
+          </article>
+
+          <article class="panel stat-card">
+            <p class="stat-label">累計担当者接続</p>
+            <p class="stat-value" id="connectionsValue">0</p>
+          </article>
+
+          <article class="panel stat-card">
+            <p class="stat-label">累計サンプル送付数</p>
+            <p class="stat-value" id="sampleSentValue">0</p>
+          </article>
+
+          <article class="panel stat-card">
+            <p class="stat-label">累計導入件数</p>
+            <p class="stat-value" id="introductionsValue">0</p>
+          </article>
+
+          <article class="panel summary-card">
+            <p class="summary-label">総合接続率</p>
+            <p class="summary-value" id="connectionTotalRateValue">0%</p>
+            <p class="summary-subtext" id="paceText">全期間の架電に対する担当者接続率です</p>
+          </article>
+
+          <article class="panel summary-card summary-card-alt">
+            <p class="summary-label">総合サンプル送付率</p>
+            <p class="summary-value" id="sampleTotalRateValue">0%</p>
+            <p class="summary-subtext" id="sampleRateText">全期間の架電に対するサンプル送付率です</p>
+          </article>
+        </section>
+
+        <div class="history-summary">
+          <div class="history-summary-card">
+            <p class="field-label">選択月接続率</p>
+            <p class="history-summary-value" id="historyMonthConnectionRateValue">0%</p>
+          </div>
+          <div class="history-summary-card">
+            <p class="field-label">選択月サンプル送付率</p>
+            <p class="history-summary-value" id="historyMonthSampleRateValue">0%</p>
+          </div>
+        </div>
+
+        <div class="history-table-wrap">
+          <table class="history-table">
+            <thead>
+              <tr>
+                <th>日付</th>
+                <th>架電</th>
+                <th>接続</th>
+                <th>接続率</th>
+                <th>サンプル送付</th>
+                <th>サンプル送付率</th>
+                <th>導入</th>
+                <th>更新時刻</th>
+              </tr>
+            </thead>
+            <tbody id="historyBody">
+              <tr>
+                <td colspan="8" class="empty-cell">読み込み中です</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <div class="toast" id="toast"></div>
+
+    <script src="./assets/js/app.js?v=20260416-9"></script>
+  </body>
+</html>

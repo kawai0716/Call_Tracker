@@ -1,0 +1,12 @@
+node_modules/
+.DS_Store
+Thumbs.db
+.codex
+
+# Local-only helper files
+README.md
+docs/
+
+# Temporary archives and exports
+*.zip
+*.csv
