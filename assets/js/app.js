@@ -824,6 +824,7 @@ function incrementSampleSent(record, amount = 1) {
 
 function incrementIntroductions(record, amount = 1) {
   record.calls += amount;
+  record.connections += amount;
   record.introductions += amount;
 }
 
@@ -844,6 +845,7 @@ function decrementSampleSent(record, amount = 1) {
 
 function decrementIntroductions(record, amount = 1) {
   record.calls = Math.max(0, record.calls - amount);
+  record.connections = Math.max(0, record.connections - amount);
   record.introductions = Math.max(0, record.introductions - amount);
 }
 
