@@ -4,6 +4,7 @@ Thumbs.db
 .codex
 
 # Local-only helper files
+DEPLOYMENT.md
 README.md
 docs/
 
