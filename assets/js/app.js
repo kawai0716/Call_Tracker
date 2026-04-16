@@ -833,17 +833,29 @@ function decrementCalls(record, amount = 1) {
 }
 
 function decrementConnections(record, amount = 1) {
+  if (record.connections <= 0) {
+    return;
+  }
+
   record.calls = Math.max(0, record.calls - amount);
   record.connections = Math.max(0, record.connections - amount);
 }
 
 function decrementSampleSent(record, amount = 1) {
+  if (record.sampleSent <= 0) {
+    return;
+  }
+
   record.calls = Math.max(0, record.calls - amount);
   record.connections = Math.max(0, record.connections - amount);
   record.sampleSent = Math.max(0, record.sampleSent - amount);
 }
 
 function decrementIntroductions(record, amount = 1) {
+  if (record.introductions <= 0) {
+    return;
+  }
+
   record.calls = Math.max(0, record.calls - amount);
   record.connections = Math.max(0, record.connections - amount);
   record.introductions = Math.max(0, record.introductions - amount);
