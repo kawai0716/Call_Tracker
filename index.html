@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>架電カウンター</title>
-    <link rel="stylesheet" href="./assets/css/style.css?v=20260416-14" />
+    <link rel="stylesheet" href="./assets/css/style.css?v=20260417-1" />
   </head>
   <body>
     <div class="background-glow background-glow-left"></div>
@@ -206,6 +206,50 @@
           </label>
         </div>
 
+        <div class="sheet-sync-panel">
+          <div class="section-heading">
+            <div>
+              <p class="section-kicker">Spreadsheet Sync</p>
+              <h2>スプレッドシート連携</h2>
+            </div>
+          </div>
+
+          <div class="report-grid">
+            <label class="field report-field-full">
+              <span class="field-label">Apps Script URL</span>
+              <input
+                id="appsScriptUrlInput"
+                class="field-input"
+                placeholder="例: https://script.google.com/macros/s/.../exec"
+              />
+            </label>
+            <label class="field report-field-full">
+              <span class="field-label">スプレッドシートURL</span>
+              <input
+                id="spreadsheetUrlInput"
+                class="field-input"
+                placeholder="例: https://docs.google.com/spreadsheets/d/..."
+              />
+            </label>
+            <label class="field">
+              <span class="field-label">対象シート名</span>
+              <input
+                id="spreadsheetSheetNameInput"
+                class="field-input"
+                maxlength="80"
+                placeholder="例: 2026年4月｜Q1"
+              />
+            </label>
+          </div>
+
+          <div class="section-actions">
+            <button class="secondary-button" id="saveSyncSettingsButton" type="button">連携設定を保存</button>
+            <p class="inline-note" id="syncStatusText">
+              連携設定を入れると、日報メモ保存時と報告テンプレートコピー時に4項目を上書き同期します。
+            </p>
+          </div>
+        </div>
+
         <div class="section-actions">
           <button class="secondary-button" id="saveMemoButton">日報メモを保存</button>
           <button class="accent-button" id="copyTemplateButton">テンプレートをコピー</button>
@@ -326,6 +370,6 @@
 
     <div class="toast" id="toast"></div>
 
-    <script src="./assets/js/app.js?v=20260416-14"></script>
+    <script src="./assets/js/app.js?v=20260417-1"></script>
   </body>
 </html>

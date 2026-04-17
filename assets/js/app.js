@@ -37,6 +37,11 @@ const elements = {
   goalConnectionsInput: document.getElementById("goalConnectionsInput"),
   saveGoalsButton: document.getElementById("saveGoalsButton"),
   goalsStatusText: document.getElementById("goalsStatusText"),
+  appsScriptUrlInput: document.getElementById("appsScriptUrlInput"),
+  spreadsheetUrlInput: document.getElementById("spreadsheetUrlInput"),
+  spreadsheetSheetNameInput: document.getElementById("spreadsheetSheetNameInput"),
+  saveSyncSettingsButton: document.getElementById("saveSyncSettingsButton"),
+  syncStatusText: document.getElementById("syncStatusText"),
   locationSelect: document.getElementById("locationSelect"),
   newLocationInput: document.getElementById("newLocationInput"),
   addLocationButton: document.getElementById("addLocationButton"),
@@ -75,6 +80,14 @@ function createDefaultState() {
   return {
     records: {},
     dailyGoals: {},
+    syncSettings: {
+      appsScriptUrl: "",
+      spreadsheetUrl: "",
+      sheetName: "",
+      statusText: "",
+      statusLevel: "",
+      syncedAt: "",
+    },
     locationOptions: ["自宅"],
     selectedHistoryMonth: "",
     activePage: "dashboard",
@@ -119,6 +132,10 @@ function sanitizeState(candidate) {
     for (const [dateKey, goals] of Object.entries(candidate.dailyGoals)) {
       base.dailyGoals[dateKey] = sanitizeGoals(goals);
     }
+  }
+
+  if (candidate.syncSettings && typeof candidate.syncSettings === "object") {
+    base.syncSettings = sanitizeSyncSettings(candidate.syncSettings);
   }
 
   if (candidate.monthlyGoals && typeof candidate.monthlyGoals === "object") {
@@ -202,8 +219,164 @@ function sanitizeGoals(goals) {
   };
 }
 
+function sanitizeSyncSettings(settings) {
+  return {
+    appsScriptUrl:
+      typeof settings?.appsScriptUrl === "string" ? settings.appsScriptUrl.trim().slice(0, 500) : "",
+    spreadsheetUrl:
+      typeof settings?.spreadsheetUrl === "string"
+        ? settings.spreadsheetUrl.trim().slice(0, 500)
+        : "",
+    sheetName: typeof settings?.sheetName === "string" ? settings.sheetName.trim().slice(0, 80) : "",
+    statusText: typeof settings?.statusText === "string" ? settings.statusText.trim().slice(0, 240) : "",
+    statusLevel:
+      settings?.statusLevel === "success" || settings?.statusLevel === "error" || settings?.statusLevel === "info"
+        ? settings.statusLevel
+        : "",
+    syncedAt: typeof settings?.syncedAt === "string" ? settings.syncedAt : "",
+  };
+}
+
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function extractSpreadsheetId(spreadsheetUrl) {
+  const value = String(spreadsheetUrl || "").trim();
+  const match = value.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  return match ? match[1] : "";
+}
+
+function setSyncStatus(message, statusLevel = "info", syncedAt = "") {
+  state.syncSettings.statusText = String(message || "").trim().slice(0, 240);
+  state.syncSettings.statusLevel = statusLevel;
+  state.syncSettings.syncedAt = syncedAt;
+  saveState();
+  renderSyncSettings();
+}
+
+function renderSyncSettings() {
+  const syncSettings = state.syncSettings;
+  const hasConfigured =
+    Boolean(syncSettings.appsScriptUrl) && Boolean(syncSettings.spreadsheetUrl) && Boolean(syncSettings.sheetName);
+
+  elements.appsScriptUrlInput.value = syncSettings.appsScriptUrl;
+  elements.spreadsheetUrlInput.value = syncSettings.spreadsheetUrl;
+  elements.spreadsheetSheetNameInput.value = syncSettings.sheetName;
+
+  if (syncSettings.statusText) {
+    elements.syncStatusText.textContent = syncSettings.statusText;
+  } else if (hasConfigured) {
+    elements.syncStatusText.textContent = "連携設定は保存済みです。保存時とコピー時にシート同期します。";
+  } else {
+    elements.syncStatusText.textContent =
+      "連携設定を入れると、日報メモ保存時と報告テンプレートコピー時に4項目を上書き同期します。";
+  }
+
+  elements.syncStatusText.dataset.statusLevel = syncSettings.statusLevel || "info";
+}
+
+function saveSyncSettings() {
+  state.syncSettings = sanitizeSyncSettings({
+    ...state.syncSettings,
+    appsScriptUrl: elements.appsScriptUrlInput.value,
+    spreadsheetUrl: elements.spreadsheetUrlInput.value,
+    sheetName: elements.spreadsheetSheetNameInput.value,
+  });
+  saveState();
+  renderSyncSettings();
+  showToast("連携設定を保存しました");
+}
+
+function buildSpreadsheetSyncPayload(trigger) {
+  const todayKey = getTodayKey();
+  const [year, month, day] = todayKey.split("-");
+  const todayRecord = getTodayRecord();
+  const spreadsheetId = extractSpreadsheetId(state.syncSettings.spreadsheetUrl);
+
+  return {
+    trigger,
+    dateKey: todayKey,
+    year: Number(year),
+    month: Number(month),
+    day: Number(day),
+    spreadsheetId,
+    spreadsheetUrl: state.syncSettings.spreadsheetUrl,
+    sheetName: state.syncSettings.sheetName,
+    values: {
+      calls: todayRecord.calls,
+      connections: todayRecord.connections,
+      sampleSent: todayRecord.sampleSent,
+      introductions: todayRecord.introductions,
+    },
+  };
+}
+
+async function syncSpreadsheet(trigger) {
+  const syncSettings = state.syncSettings;
+
+  if (!syncSettings.appsScriptUrl || !syncSettings.spreadsheetUrl || !syncSettings.sheetName) {
+    return;
+  }
+
+  const payload = buildSpreadsheetSyncPayload(trigger);
+
+  if (!payload.spreadsheetId) {
+    setSyncStatus("スプレッドシートURLからIDを読み取れませんでした。URLを確認してください。", "error");
+    return;
+  }
+
+  setSyncStatus("スプレッドシートへ同期しています…", "info");
+
+  try {
+    const response = await fetch(syncSettings.appsScriptUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/plain;charset=utf-8",
+      },
+      body: JSON.stringify(payload),
+    });
+    const responseText = await response.text();
+
+    if (!response.ok) {
+      throw new Error(responseText || "Unexpected response");
+    }
+
+    const result = responseText ? JSON.parse(responseText) : {};
+
+    if (!result.ok) {
+      throw new Error(result.error || "Unknown sync error");
+    }
+
+    const syncedAt = new Date().toISOString();
+    setSyncStatus(
+      `${formatDate(payload.dateKey)} の実績をスプレッドシートへ同期しました。`,
+      "success",
+      syncedAt,
+    );
+  } catch (error) {
+    console.error("Spreadsheet sync failed:", error);
+
+    try {
+      await fetch(syncSettings.appsScriptUrl, {
+        method: "POST",
+        mode: "no-cors",
+        headers: {
+          "Content-Type": "text/plain;charset=utf-8",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      setSyncStatus(
+        "スプレッドシートへ送信しました。反映結果はシート側で確認してください。",
+        "info",
+        new Date().toISOString(),
+      );
+    } catch (fallbackError) {
+      console.error("Spreadsheet sync fallback failed:", fallbackError);
+      setSyncStatus("スプレッドシート連携に失敗しました。Apps Script URL と共有権限を確認してください。", "error");
+    }
+  }
 }
 
 function renderActivePage() {
@@ -1142,6 +1315,7 @@ function render() {
   elements.goalsStatusText.textContent = goalsMissing(currentGoals)
     ? "今日の目標が未設定です。必要ならここで保存してください。"
     : "今日の目標は保存済みです。対象日ごとに保持されます。";
+  renderSyncSettings();
 
   renderLocationOptions(todayRecord.location || "自宅");
   elements.workedHoursInput.value = todayRecord.workedHours || "";
@@ -1182,13 +1356,14 @@ function saveGoals() {
   showToast("今日の目標を保存しました");
 }
 
-function saveDailyMemo() {
+async function saveDailyMemo() {
   updateTodayRecord((record) => {
     record.location = elements.locationSelect.value;
     record.workedHours = elements.workedHoursInput.value;
     record.reflection = elements.reflectionInput.value;
   });
   showToast("日報メモを保存しました");
+  await syncSpreadsheet("save_memo");
 }
 
 function advanceBusinessDay() {
@@ -1303,6 +1478,7 @@ async function copyTemplate() {
 
   elements.templatePreview.value = text;
   showToast("テンプレートをコピーしました");
+  await syncSpreadsheet("copy_template");
 }
 
 document.addEventListener("click", (event) => {
@@ -1385,6 +1561,7 @@ document.addEventListener("click", (event) => {
 elements.exportButton.addEventListener("click", exportCsv);
 elements.advanceBusinessDayButton.addEventListener("click", advanceBusinessDay);
 elements.toggleRecordingButton.addEventListener("click", toggleRecording);
+elements.saveSyncSettingsButton.addEventListener("click", saveSyncSettings);
 elements.addLocationButton.addEventListener("click", addLocationOption);
 elements.locationSelect.addEventListener("change", () => {
   elements.templatePreview.value = buildTemplate();
