@@ -267,10 +267,10 @@ function renderSyncSettings() {
   if (syncSettings.statusText) {
     elements.syncStatusText.textContent = syncSettings.statusText;
   } else if (hasConfigured) {
-    elements.syncStatusText.textContent = "連携設定は保存済みです。保存時とコピー時にシート同期します。";
+    elements.syncStatusText.textContent = "連携設定は保存済みです。保存時とコピー時にメンバータブ内の当月ブロックへ同期します。";
   } else {
     elements.syncStatusText.textContent =
-      "連携設定を入れると、日報メモ保存時と報告テンプレートコピー時に4項目を上書き同期します。";
+      "連携設定を入れると、日報メモ保存時と報告テンプレートコピー時にメンバータブ内の当月ブロックへ4項目を上書き同期します。";
   }
 
   elements.syncStatusText.dataset.statusLevel = syncSettings.statusLevel || "info";
@@ -350,7 +350,7 @@ async function syncSpreadsheet(trigger) {
 
     const syncedAt = new Date().toISOString();
     setSyncStatus(
-      `${formatDate(payload.dateKey)} の実績をスプレッドシートへ同期しました。`,
+      `${formatDate(payload.dateKey)} の実績をメンバータブ内の当月ブロックへ同期しました。`,
       "success",
       syncedAt,
     );

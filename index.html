@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>架電カウンター</title>
-    <link rel="stylesheet" href="./assets/css/style.css?v=20260417-1" />
+    <link rel="stylesheet" href="./assets/css/style.css?v=20260417-2" />
   </head>
   <body>
     <div class="background-glow background-glow-left"></div>
@@ -232,12 +232,12 @@
               />
             </label>
             <label class="field">
-              <span class="field-label">対象シート名</span>
+              <span class="field-label">対象シート名（メンバー名タブ）</span>
               <input
                 id="spreadsheetSheetNameInput"
                 class="field-input"
                 maxlength="80"
-                placeholder="例: 2026年4月｜Q1"
+                placeholder="例: 山田太郎"
               />
             </label>
           </div>
@@ -245,7 +245,7 @@
           <div class="section-actions">
             <button class="secondary-button" id="saveSyncSettingsButton" type="button">連携設定を保存</button>
             <p class="inline-note" id="syncStatusText">
-              連携設定を入れると、日報メモ保存時と報告テンプレートコピー時に4項目を上書き同期します。
+              連携設定を入れると、日報メモ保存時と報告テンプレートコピー時に当月ブロックへ4項目を上書き同期します。
             </p>
           </div>
         </div>
@@ -370,6 +370,6 @@
 
     <div class="toast" id="toast"></div>
 
-    <script src="./assets/js/app.js?v=20260417-1"></script>
+    <script src="./assets/js/app.js?v=20260417-2"></script>
   </body>
 </html>
