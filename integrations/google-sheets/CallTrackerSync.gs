@@ -236,10 +236,7 @@ function findDayRowInBlock(displayValues, headerRow, endRow, day) {
 }
 
 function writeIntegerValue(sheet, rowIndex, columnIndex, value) {
-  sheet
-    .getRange(rowIndex, columnIndex)
-    .setNumberFormat("0")
-    .setValue(Number(value || 0));
+  sheet.getRange(rowIndex, columnIndex).setValue(Number(value || 0));
 }
 
 function jsonResponse(payload) {
