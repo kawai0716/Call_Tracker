@@ -53,10 +53,10 @@ function doPost(e) {
       return jsonResponse({ ok: false, error: "Day row not found", monthBlockTitle: monthBlockTitle, day: day });
     }
 
-    sheet.getRange(rowIndex, headerInfo.columns.calls).setValue(Number(values.calls || 0));
-    sheet.getRange(rowIndex, headerInfo.columns.connections).setValue(Number(values.connections || 0));
-    sheet.getRange(rowIndex, headerInfo.columns.sampleSent).setValue(Number(values.sampleSent || 0));
-    sheet.getRange(rowIndex, headerInfo.columns.introductions).setValue(Number(values.introductions || 0));
+    writeIntegerValue(sheet, rowIndex, headerInfo.columns.calls, values.calls);
+    writeIntegerValue(sheet, rowIndex, headerInfo.columns.connections, values.connections);
+    writeIntegerValue(sheet, rowIndex, headerInfo.columns.sampleSent, values.sampleSent);
+    writeIntegerValue(sheet, rowIndex, headerInfo.columns.introductions, values.introductions);
 
     return jsonResponse({
       ok: true,
@@ -223,6 +223,13 @@ function findDayRowInBlock(displayValues, headerRow, endRow, day) {
   }
 
   return 0;
+}
+
+function writeIntegerValue(sheet, rowIndex, columnIndex, value) {
+  sheet
+    .getRange(rowIndex, columnIndex)
+    .setNumberFormat("0")
+    .setValue(Number(value || 0));
 }
 
 function jsonResponse(payload) {
