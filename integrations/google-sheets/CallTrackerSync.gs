@@ -28,7 +28,7 @@ function doPost(e) {
     }
 
     const dataRange = sheet.getDataRange();
-    const displayValues = dataRange.getDisplayValues();
+    const displayValues = dataRange.gtDisplayValues();
     const monthBlockTitle = buildMonthBlockTitle(year, month);
     const monthBlock = findMonthBlock(displayValues, monthBlockTitle);
 
@@ -37,6 +37,7 @@ function doPost(e) {
     }
 
     const headerInfo = findActualColumnsInBlock(displayValues, monthBlock.startRow, monthBlock.endRow);
+    const memoColumn = findColumnInBlock(displayValues, monthBlock.startRow, monthBlock.endRow, ["メモ"]);
 
     if (
       !headerInfo.columns.calls ||
@@ -44,7 +45,7 @@ function doPost(e) {
       !headerInfo.columns.connections ||
       !headerInfo.columns.sampleSent ||
       !headerInfo.columns.introductions ||
-      !headerInfo.columns.memo
+      !memoColumn
     ) {
       return jsonResponse({ ok: false, error: "Required columns not found", monthBlockTitle: monthBlockTitle });
     }
@@ -60,7 +61,7 @@ function doPost(e) {
     writeIntegerValue(sheet, rowIndex, headerInfo.columns.connections, values.connections);
     writeIntegerValue(sheet, rowIndex, headerInfo.columns.sampleSent, values.sampleSent);
     writeIntegerValue(sheet, rowIndex, headerInfo.columns.introductions, values.introductions);
-    sheet.getRange(rowIndex, headerInfo.columns.memo).setValue(String(values.reflection || ""));
+    sheet.getRange(rowIndex, memoColumn).setValue(String(values.reflection || ""));
 
     return jsonResponse({
       ok: true,
@@ -168,7 +169,6 @@ function findActualColumnsInBlock(displayValues, startRow, endRow) {
     connections: ["担当者接続数実"],
     sampleSent: ["サンプル送付数実"],
     introductions: ["導入数新規成約実", "導入数実"],
-    memo: ["メモ"],
   };
 
   for (let row = startRow; row <= endRow; row += 1) {
@@ -178,7 +178,6 @@ function findActualColumnsInBlock(displayValues, startRow, endRow) {
       connections: 0,
       sampleSent: 0,
       introductions: 0,
-      memo: 0,
     };
 
     for (let col = 0; col < displayValues[row].length; col += 1) {
@@ -204,19 +203,9 @@ function findActualColumnsInBlock(displayValues, startRow, endRow) {
         columns.introductions = col + 1;
       }
 
-      if (!columns.memo && matchesHeader(cell, aliases.memo)) {
-        columns.memo = col + 1;
-      }
     }
 
-    if (
-      columns.calls &&
-      columns.secondCalls &&
-      columns.connections &&
-      columns.sampleSent &&
-      columns.introductions &&
-      columns.memo
-    ) {
+    if (columns.calls && columns.secondCalls && columns.connections && columns.sampleSent && columns.introductions) {
       return { headerRow: row + 1, columns: columns };
     }
   }
@@ -229,9 +218,20 @@ function findActualColumnsInBlock(displayValues, startRow, endRow) {
       connections: 0,
       sampleSent: 0,
       introductions: 0,
-      memo: 0,
     },
   };
+}
+
+function findColumnInBlock(displayValues, startRow, endRow, aliases) {
+  for (let row = startRow; row <= endRow; row += 1) {
+    for (let col = 0; col < displayValues[row].length; col += 1) {
+      if (matchesHeader(displayValues[row][col], aliases)) {
+        return col + 1;
+      }
+    }
+  }
+
+  return 0;
 }
 
 function findDayRowInBlock(displayValues, headerRow, endRow, day) {
