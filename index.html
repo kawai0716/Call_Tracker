@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>架電カウンター</title>
-    <link rel="stylesheet" href="./assets/css/style.css?v=20260418-2" />
+    <link rel="stylesheet" href="./assets/css/style.css?v=20260418-3" />
   </head>
   <body>
     <div class="background-glow background-glow-left"></div>
@@ -47,7 +47,6 @@
             <h2>基本設定</h2>
           </div>
           <div class="toolbar">
-            <button class="secondary-button" id="exportButton">CSV出力</button>
             <button class="secondary-button" id="advanceBusinessDayButton">報告済みで次の日へ</button>
             <button class="danger-button" id="resetTodayButton">今日をリセット</button>
           </div>
@@ -263,13 +262,12 @@
           <div class="section-actions">
             <button class="secondary-button" id="saveSyncSettingsButton" type="button">連携設定を保存</button>
             <p class="inline-note" id="syncStatusText">
-              連携設定を入れると、日報メモ保存時と報告テンプレートコピー時に当月ブロックへ5項目を上書き同期します。
+              連携設定を入れると、報告テンプレートコピー時に当月ブロックへ5項目を上書き同期します。
             </p>
           </div>
         </div>
 
         <div class="section-actions">
-          <button class="secondary-button" id="saveMemoButton">日報メモを保存</button>
           <button class="accent-button" id="copyTemplateButton">テンプレートをコピー</button>
         </div>
 
@@ -388,6 +386,6 @@
 
     <div class="toast" id="toast"></div>
 
-    <script src="./assets/js/app.js?v=20260418-2"></script>
+    <script src="./assets/js/app.js?v=20260418-3"></script>
   </body>
 </html>

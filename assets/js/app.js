@@ -9,7 +9,6 @@ const elements = {
   updatedAtLabel: document.getElementById("updatedAtLabel"),
   storageStatusLabel: document.getElementById("storageStatusLabel"),
   heroTodayPanel: document.getElementById("heroTodayPanel"),
-  exportButton: document.getElementById("exportButton"),
   advanceBusinessDayButton: document.getElementById("advanceBusinessDayButton"),
   resetTodayButton: document.getElementById("resetTodayButton"),
   todayCallsValue: document.getElementById("todayCallsValue"),
@@ -49,7 +48,6 @@ const elements = {
   addLocationButton: document.getElementById("addLocationButton"),
   workedHoursInput: document.getElementById("workedHoursInput"),
   reflectionInput: document.getElementById("reflectionInput"),
-  saveMemoButton: document.getElementById("saveMemoButton"),
   copyTemplateButton: document.getElementById("copyTemplateButton"),
   templatePreview: document.getElementById("templatePreview"),
   recordingStatusText: document.getElementById("recordingStatusText"),
@@ -282,10 +280,10 @@ function renderSyncSettings() {
   if (syncSettings.statusText) {
     elements.syncStatusText.textContent = syncSettings.statusText;
   } else if (hasConfigured) {
-    elements.syncStatusText.textContent = "連携設定は保存済みです。保存時とコピー時にメンバータブ内の当月ブロックへ同期します。";
+    elements.syncStatusText.textContent = "連携設定は保存済みです。コピー時にメンバータブ内の当月ブロックへ同期します。";
   } else {
     elements.syncStatusText.textContent =
-      "連携設定を入れると、日報メモ保存時と報告テンプレートコピー時にメンバータブ内の当月ブロックへ5項目を上書き同期します。";
+      "連携設定を入れると、報告テンプレートコピー時にメンバータブ内の当月ブロックへ5項目を上書き同期します。";
   }
 
   elements.syncStatusText.dataset.statusLevel = syncSettings.statusLevel || "info";
@@ -324,7 +322,6 @@ function buildSpreadsheetSyncPayload(trigger) {
       connections: todayRecord.connections,
       sampleSent: todayRecord.sampleSent,
       introductions: todayRecord.introductions,
-      reflection: todayRecord.reflection,
     },
   };
 }
@@ -1407,14 +1404,19 @@ function saveGoals() {
   showToast("今日の目標を保存しました");
 }
 
-async function saveDailyMemo() {
-  updateTodayRecord((record) => {
-    record.location = elements.locationSelect.value;
-    record.workedHours = elements.workedHoursInput.value;
-    record.reflection = elements.reflectionInput.value;
+function persistReportFields() {
+  const todayKey = getTodayKey();
+  const current = getTodayRecord();
+  const next = sanitizeRecord({
+    ...current,
+    location: elements.locationSelect.value,
+    workedHours: elements.workedHoursInput.value,
+    reflection: elements.reflectionInput.value,
   });
-  showToast("日報メモを保存しました");
-  await syncSpreadsheet("save_memo");
+
+  next.updatedAt = current.updatedAt || new Date().toISOString();
+  state.records[todayKey] = next;
+  saveState();
 }
 
 function advanceBusinessDay() {
@@ -1469,58 +1471,8 @@ function alignBusinessDayToCurrentDate() {
   return currentCalendarDateKey;
 }
 
-function exportCsv() {
-  const rows = [
-    [
-      "date",
-      "calls",
-      "first_calls",
-      "second_calls",
-      "connections",
-      "sample_sent",
-      "introductions",
-      "connection_rate_percent",
-      "location",
-      "worked_hours",
-      "reflection",
-      "updated_at",
-    ],
-  ];
-
-  const records = Object.entries(state.records).sort(([left], [right]) => right.localeCompare(left));
-
-  for (const [dateKey, record] of records) {
-    const safeRecord = sanitizeRecord(record);
-    rows.push([
-      dateKey,
-      String(safeRecord.calls),
-      String(safeRecord.firstCalls),
-      String(safeRecord.secondCalls),
-      String(safeRecord.connections),
-      String(safeRecord.sampleSent),
-      String(safeRecord.introductions),
-      String(getRate(safeRecord.connections, safeRecord.calls)),
-      JSON.stringify(safeRecord.location || ""),
-      JSON.stringify(safeRecord.workedHours || ""),
-      JSON.stringify(safeRecord.reflection || ""),
-      safeRecord.updatedAt || "",
-    ]);
-  }
-
-  const csv = rows.map((row) => row.join(",")).join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-
-  link.href = url;
-  link.download = `call-tracker-${getTodayKey()}.csv`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-}
-
 async function copyTemplate() {
+  persistReportFields();
   const text = buildTemplate();
 
   try {
@@ -1627,12 +1579,12 @@ document.addEventListener("click", (event) => {
   }
 });
 
-elements.exportButton.addEventListener("click", exportCsv);
 elements.advanceBusinessDayButton.addEventListener("click", advanceBusinessDay);
 elements.toggleRecordingButton.addEventListener("click", toggleRecording);
 elements.saveSyncSettingsButton.addEventListener("click", saveSyncSettings);
 elements.addLocationButton.addEventListener("click", addLocationOption);
 elements.locationSelect.addEventListener("change", () => {
+  persistReportFields();
   elements.templatePreview.value = buildTemplate();
 });
 elements.historyMonthSelect.addEventListener("change", () => {
@@ -1669,7 +1621,6 @@ elements.resetTodayButton.addEventListener("click", () => {
 });
 
 elements.saveGoalsButton.addEventListener("click", saveGoals);
-elements.saveMemoButton.addEventListener("click", saveDailyMemo);
 elements.copyTemplateButton.addEventListener("click", copyTemplate);
 
 [
@@ -1681,6 +1632,13 @@ elements.copyTemplateButton.addEventListener("click", copyTemplate);
   elements.reflectionInput,
 ].forEach((element) => {
   element.addEventListener("input", () => {
+    elements.templatePreview.value = buildTemplate();
+  });
+});
+
+[elements.workedHoursInput, elements.reflectionInput].forEach((element) => {
+  element.addEventListener("input", () => {
+    persistReportFields();
     elements.templatePreview.value = buildTemplate();
   });
 });

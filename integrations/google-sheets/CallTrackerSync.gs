@@ -28,7 +28,7 @@ function doPost(e) {
     }
 
     const dataRange = sheet.getDataRange();
-    const displayValues = dataRange.gtDisplayValues();
+    const displayValues = dataRange.getDisplayValues();
     const monthBlockTitle = buildMonthBlockTitle(year, month);
     const monthBlock = findMonthBlock(displayValues, monthBlockTitle);
 
@@ -37,15 +37,13 @@ function doPost(e) {
     }
 
     const headerInfo = findActualColumnsInBlock(displayValues, monthBlock.startRow, monthBlock.endRow);
-    const memoColumn = findColumnInBlock(displayValues, monthBlock.startRow, monthBlock.endRow, ["メモ"]);
 
     if (
       !headerInfo.columns.calls ||
       !headerInfo.columns.secondCalls ||
       !headerInfo.columns.connections ||
       !headerInfo.columns.sampleSent ||
-      !headerInfo.columns.introductions ||
-      !memoColumn
+      !headerInfo.columns.introductions
     ) {
       return jsonResponse({ ok: false, error: "Required columns not found", monthBlockTitle: monthBlockTitle });
     }
@@ -61,7 +59,6 @@ function doPost(e) {
     writeIntegerValue(sheet, rowIndex, headerInfo.columns.connections, values.connections);
     writeIntegerValue(sheet, rowIndex, headerInfo.columns.sampleSent, values.sampleSent);
     writeIntegerValue(sheet, rowIndex, headerInfo.columns.introductions, values.introductions);
-    sheet.getRange(rowIndex, memoColumn).setValue(String(values.reflection || ""));
 
     return jsonResponse({
       ok: true,
@@ -73,7 +70,6 @@ function doPost(e) {
         connections: Number(values.connections || 0),
         sampleSent: Number(values.sampleSent || 0),
         introductions: Number(values.introductions || 0),
-        reflection: String(values.reflection || ""),
       },
     });
   } catch (error) {
@@ -220,18 +216,6 @@ function findActualColumnsInBlock(displayValues, startRow, endRow) {
       introductions: 0,
     },
   };
-}
-
-function findColumnInBlock(displayValues, startRow, endRow, aliases) {
-  for (let row = startRow; row <= endRow; row += 1) {
-    for (let col = 0; col < displayValues[row].length; col += 1) {
-      if (matchesHeader(displayValues[row][col], aliases)) {
-        return col + 1;
-      }
-    }
-  }
-
-  return 0;
 }
 
 function findDayRowInBlock(displayValues, headerRow, endRow, day) {
