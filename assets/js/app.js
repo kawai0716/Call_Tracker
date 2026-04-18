@@ -324,6 +324,7 @@ function buildSpreadsheetSyncPayload(trigger) {
       connections: todayRecord.connections,
       sampleSent: todayRecord.sampleSent,
       introductions: todayRecord.introductions,
+      reflection: todayRecord.reflection,
     },
   };
 }

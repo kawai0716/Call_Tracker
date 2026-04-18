@@ -43,7 +43,8 @@ function doPost(e) {
       !headerInfo.columns.secondCalls ||
       !headerInfo.columns.connections ||
       !headerInfo.columns.sampleSent ||
-      !headerInfo.columns.introductions
+      !headerInfo.columns.introductions ||
+      !headerInfo.columns.memo
     ) {
       return jsonResponse({ ok: false, error: "Required columns not found", monthBlockTitle: monthBlockTitle });
     }
@@ -59,6 +60,7 @@ function doPost(e) {
     writeIntegerValue(sheet, rowIndex, headerInfo.columns.connections, values.connections);
     writeIntegerValue(sheet, rowIndex, headerInfo.columns.sampleSent, values.sampleSent);
     writeIntegerValue(sheet, rowIndex, headerInfo.columns.introductions, values.introductions);
+    sheet.getRange(rowIndex, headerInfo.columns.memo).setValue(String(values.reflection || ""));
 
     return jsonResponse({
       ok: true,
@@ -70,6 +72,7 @@ function doPost(e) {
         connections: Number(values.connections || 0),
         sampleSent: Number(values.sampleSent || 0),
         introductions: Number(values.introductions || 0),
+        reflection: String(values.reflection || ""),
       },
     });
   } catch (error) {
@@ -165,6 +168,7 @@ function findActualColumnsInBlock(displayValues, startRow, endRow) {
     connections: ["担当者接続数実"],
     sampleSent: ["サンプル送付数実"],
     introductions: ["導入数新規成約実", "導入数実"],
+    memo: ["メモ"],
   };
 
   for (let row = startRow; row <= endRow; row += 1) {
@@ -174,6 +178,7 @@ function findActualColumnsInBlock(displayValues, startRow, endRow) {
       connections: 0,
       sampleSent: 0,
       introductions: 0,
+      memo: 0,
     };
 
     for (let col = 0; col < displayValues[row].length; col += 1) {
@@ -198,9 +203,20 @@ function findActualColumnsInBlock(displayValues, startRow, endRow) {
       if (!columns.introductions && matchesHeader(cell, aliases.introductions)) {
         columns.introductions = col + 1;
       }
+
+      if (!columns.memo && matchesHeader(cell, aliases.memo)) {
+        columns.memo = col + 1;
+      }
     }
 
-    if (columns.calls && columns.secondCalls && columns.connections && columns.sampleSent && columns.introductions) {
+    if (
+      columns.calls &&
+      columns.secondCalls &&
+      columns.connections &&
+      columns.sampleSent &&
+      columns.introductions &&
+      columns.memo
+    ) {
       return { headerRow: row + 1, columns: columns };
     }
   }
@@ -213,6 +229,7 @@ function findActualColumnsInBlock(displayValues, startRow, endRow) {
       connections: 0,
       sampleSent: 0,
       introductions: 0,
+      memo: 0,
     },
   };
 }
