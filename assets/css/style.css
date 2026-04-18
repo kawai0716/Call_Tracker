@@ -326,6 +326,10 @@ textarea {
   background: linear-gradient(135deg, #eafffa, #d8f3ee);
 }
 
+.action-recall {
+  background: linear-gradient(135deg, #f4efff, #e5d9ff);
+}
+
 .action-sample {
   background: linear-gradient(135deg, #fff8eb, #ffe8cc);
 }
@@ -386,6 +390,31 @@ textarea {
   margin: 0.5rem 0 0.9rem;
   font-size: clamp(2.5rem, 5vw, 4.2rem);
   line-height: 0.94;
+  font-weight: 800;
+}
+
+.stat-submetrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: auto;
+}
+
+.stat-submetric {
+  display: grid;
+  gap: 0.2rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+}
+
+.stat-submetric-label {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.stat-submetric-value {
+  font-size: 1.35rem;
+  line-height: 1;
   font-weight: 800;
 }
 

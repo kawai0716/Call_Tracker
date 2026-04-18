@@ -13,6 +13,8 @@ const elements = {
   advanceBusinessDayButton: document.getElementById("advanceBusinessDayButton"),
   resetTodayButton: document.getElementById("resetTodayButton"),
   todayCallsValue: document.getElementById("todayCallsValue"),
+  todayFirstCallsValue: document.getElementById("todayFirstCallsValue"),
+  todaySecondCallsValue: document.getElementById("todaySecondCallsValue"),
   todayConnectionsValue: document.getElementById("todayConnectionsValue"),
   todaySampleSentValue: document.getElementById("todaySampleSentValue"),
   todayIntroductionsValue: document.getElementById("todayIntroductionsValue"),
@@ -178,13 +180,24 @@ function sanitizeState(candidate) {
 }
 
 function sanitizeRecord(record) {
+  const secondCalls = Math.max(
+    0,
+    Number.parseInt(record?.secondCalls ?? record?.second_call_count ?? record?.followUpCalls, 10) || 0,
+  );
+  const legacyCalls = Math.max(0, Number.parseInt(record?.calls, 10) || 0);
+  const firstCalls = Math.max(
+    0,
+    Number.parseInt(record?.firstCalls ?? record?.first_call_count, 10) || Math.max(0, legacyCalls - secondCalls),
+  );
+  const calls = Math.max(legacyCalls, firstCalls + secondCalls);
   const introductions = Math.max(0, Number.parseInt(record?.introductions, 10) || 0);
   const sampleSent = Math.max(0, Number.parseInt(record?.sampleSent ?? record?.samples, 10) || 0);
   const connections = Math.max(0, Number.parseInt(record?.connections, 10) || 0);
-  const calls = Math.max(0, Number.parseInt(record?.calls, 10) || 0);
 
   return {
     calls,
+    firstCalls,
+    secondCalls,
     connections,
     sampleSent,
     introductions,
@@ -201,6 +214,8 @@ function isMeaningfulRecord(record) {
   return Boolean(
     record.updatedAt ||
       record.calls ||
+      record.firstCalls ||
+      record.secondCalls ||
       record.connections ||
       record.sampleSent ||
       record.introductions ||
@@ -270,7 +285,7 @@ function renderSyncSettings() {
     elements.syncStatusText.textContent = "連携設定は保存済みです。保存時とコピー時にメンバータブ内の当月ブロックへ同期します。";
   } else {
     elements.syncStatusText.textContent =
-      "連携設定を入れると、日報メモ保存時と報告テンプレートコピー時にメンバータブ内の当月ブロックへ4項目を上書き同期します。";
+      "連携設定を入れると、日報メモ保存時と報告テンプレートコピー時にメンバータブ内の当月ブロックへ5項目を上書き同期します。";
   }
 
   elements.syncStatusText.dataset.statusLevel = syncSettings.statusLevel || "info";
@@ -305,6 +320,7 @@ function buildSpreadsheetSyncPayload(trigger) {
     sheetName: state.syncSettings.sheetName,
     values: {
       calls: todayRecord.calls,
+      secondCalls: todayRecord.secondCalls,
       connections: todayRecord.connections,
       sampleSent: todayRecord.sampleSent,
       introductions: todayRecord.introductions,
@@ -982,27 +998,50 @@ function getRate(numerator, denominator) {
 
 function incrementCalls(record, amount = 1) {
   record.calls += amount;
+  record.firstCalls += amount;
+}
+
+function incrementSecondCalls(record, amount = 1) {
+  record.calls += amount;
+  record.secondCalls += amount;
 }
 
 function incrementConnections(record, amount = 1) {
   record.calls += amount;
+  record.firstCalls += amount;
   record.connections += amount;
 }
 
 function incrementSampleSent(record, amount = 1) {
   record.calls += amount;
+  record.firstCalls += amount;
   record.connections += amount;
   record.sampleSent += amount;
 }
 
 function incrementIntroductions(record, amount = 1) {
   record.calls += amount;
+  record.firstCalls += amount;
   record.connections += amount;
   record.introductions += amount;
 }
 
 function decrementCalls(record, amount = 1) {
+  if (record.firstCalls <= 0) {
+    return;
+  }
+
   record.calls = Math.max(0, record.calls - amount);
+  record.firstCalls = Math.max(0, record.firstCalls - amount);
+}
+
+function decrementSecondCalls(record, amount = 1) {
+  if (record.secondCalls <= 0) {
+    return;
+  }
+
+  record.calls = Math.max(0, record.calls - amount);
+  record.secondCalls = Math.max(0, record.secondCalls - amount);
 }
 
 function decrementConnections(record, amount = 1) {
@@ -1011,6 +1050,7 @@ function decrementConnections(record, amount = 1) {
   }
 
   record.calls = Math.max(0, record.calls - amount);
+  record.firstCalls = Math.max(0, record.firstCalls - amount);
   record.connections = Math.max(0, record.connections - amount);
 }
 
@@ -1020,6 +1060,7 @@ function decrementSampleSent(record, amount = 1) {
   }
 
   record.calls = Math.max(0, record.calls - amount);
+  record.firstCalls = Math.max(0, record.firstCalls - amount);
   record.connections = Math.max(0, record.connections - amount);
   record.sampleSent = Math.max(0, record.sampleSent - amount);
 }
@@ -1030,6 +1071,7 @@ function decrementIntroductions(record, amount = 1) {
   }
 
   record.calls = Math.max(0, record.calls - amount);
+  record.firstCalls = Math.max(0, record.firstCalls - amount);
   record.connections = Math.max(0, record.connections - amount);
   record.introductions = Math.max(0, record.introductions - amount);
 }
@@ -1167,6 +1209,8 @@ function buildTemplate() {
 function getAggregateTotals() {
   const totals = {
     calls: 0,
+    firstCalls: 0,
+    secondCalls: 0,
     connections: 0,
     sampleSent: 0,
     introductions: 0,
@@ -1175,6 +1219,8 @@ function getAggregateTotals() {
   for (const record of Object.values(state.records)) {
     const safeRecord = sanitizeRecord(record);
     totals.calls += safeRecord.calls;
+    totals.firstCalls += safeRecord.firstCalls;
+    totals.secondCalls += safeRecord.secondCalls;
     totals.connections += safeRecord.connections;
     totals.sampleSent += safeRecord.sampleSent;
     totals.introductions += safeRecord.introductions;
@@ -1299,6 +1345,8 @@ function render() {
     : "まだ記録されていません";
   elements.storageStatusLabel.textContent = "ブラウザ内";
   elements.todayCallsValue.textContent = todayRecord.calls;
+  elements.todayFirstCallsValue.textContent = todayRecord.firstCalls;
+  elements.todaySecondCallsValue.textContent = todayRecord.secondCalls;
   elements.todayConnectionsValue.textContent = todayRecord.connections;
   elements.todaySampleSentValue.textContent = todayRecord.sampleSent;
   elements.todayIntroductionsValue.textContent = todayRecord.introductions;
@@ -1331,6 +1379,8 @@ function updateTodayRecord(mutator) {
   const current = getTodayRecord();
   const next = {
     calls: current.calls,
+    firstCalls: current.firstCalls,
+    secondCalls: current.secondCalls,
     connections: current.connections,
     sampleSent: current.sampleSent,
     introductions: current.introductions,
@@ -1423,6 +1473,8 @@ function exportCsv() {
     [
       "date",
       "calls",
+      "first_calls",
+      "second_calls",
       "connections",
       "sample_sent",
       "introductions",
@@ -1441,6 +1493,8 @@ function exportCsv() {
     rows.push([
       dateKey,
       String(safeRecord.calls),
+      String(safeRecord.firstCalls),
+      String(safeRecord.secondCalls),
       String(safeRecord.connections),
       String(safeRecord.sampleSent),
       String(safeRecord.introductions),
@@ -1512,6 +1566,20 @@ document.addEventListener("click", (event) => {
   if (action === "log-call-minus") {
     updateTodayRecord((record) => {
       decrementCalls(record);
+    });
+    return;
+  }
+
+  if (action === "log-second-call-plus") {
+    updateTodayRecord((record) => {
+      incrementSecondCalls(record);
+    });
+    return;
+  }
+
+  if (action === "log-second-call-minus") {
+    updateTodayRecord((record) => {
+      decrementSecondCalls(record);
     });
     return;
   }

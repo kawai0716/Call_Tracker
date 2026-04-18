@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>架電カウンター</title>
-    <link rel="stylesheet" href="./assets/css/style.css?v=20260417-2" />
+    <link rel="stylesheet" href="./assets/css/style.css?v=20260418-2" />
   </head>
   <body>
     <div class="background-glow background-glow-left"></div>
@@ -64,35 +64,43 @@
 
         <div class="action-grid">
           <article class="action-card action-call">
-            <span class="action-title">架電</span>
-            <span class="action-note">架電件数だけを増減</span>
+            <span class="action-title">1回目架電</span>
+            <span class="action-note">架電件数と1回目架電数を同時に増減</span>
             <div class="quick-buttons">
-              <button class="mini-button" data-action="log-call-minus">-1</button>
               <button class="mini-button" data-action="log-call-plus">+1</button>
+              <button class="mini-button" data-action="log-call-minus">-1</button>
+            </div>
+          </article>
+          <article class="action-card action-recall">
+            <span class="action-title">2回目架電</span>
+            <span class="action-note">架電件数と2回目架電数を同時に増減</span>
+            <div class="quick-buttons">
+              <button class="mini-button" data-action="log-second-call-plus">+1</button>
+              <button class="mini-button" data-action="log-second-call-minus">-1</button>
             </div>
           </article>
           <article class="action-card action-connect">
             <span class="action-title">担当者接続</span>
-            <span class="action-note">架電と担当者接続を同時に増減</span>
+            <span class="action-note">1回目架電、架電、担当者接続を同時に増減</span>
             <div class="quick-buttons">
-              <button class="mini-button" data-action="log-connect-minus">-1</button>
               <button class="mini-button" data-action="log-connect-plus">+1</button>
+              <button class="mini-button" data-action="log-connect-minus">-1</button>
             </div>
           </article>
           <article class="action-card action-sample">
             <span class="action-title">サンプル送付</span>
-            <span class="action-note">架電、接続、サンプル送付を同時に増減</span>
+            <span class="action-note">1回目架電、架電、接続、サンプル送付を同時に増減</span>
             <div class="quick-buttons">
-              <button class="mini-button" data-action="log-sample-minus">-1</button>
               <button class="mini-button" data-action="log-sample-plus">+1</button>
+              <button class="mini-button" data-action="log-sample-minus">-1</button>
             </div>
           </article>
           <article class="action-card action-introduction">
             <span class="action-title">導入</span>
-            <span class="action-note">架電、接続、導入を同時に増減</span>
+            <span class="action-note">1回目架電、架電、接続、導入を同時に増減</span>
             <div class="quick-buttons">
-              <button class="mini-button" data-action="log-introduction-minus">-1</button>
               <button class="mini-button" data-action="log-introduction-plus">+1</button>
+              <button class="mini-button" data-action="log-introduction-minus">-1</button>
             </div>
           </article>
         </div>
@@ -102,6 +110,16 @@
         <article class="panel stat-card">
           <p class="stat-label">架電件数</p>
           <p class="stat-value" id="todayCallsValue">0</p>
+          <div class="stat-submetrics">
+            <div class="stat-submetric">
+              <span class="stat-submetric-label">1回目</span>
+              <span class="stat-submetric-value" id="todayFirstCallsValue">0</span>
+            </div>
+            <div class="stat-submetric">
+              <span class="stat-submetric-label">2回目</span>
+              <span class="stat-submetric-value" id="todaySecondCallsValue">0</span>
+            </div>
+          </div>
         </article>
 
         <article class="panel stat-card">
@@ -245,7 +263,7 @@
           <div class="section-actions">
             <button class="secondary-button" id="saveSyncSettingsButton" type="button">連携設定を保存</button>
             <p class="inline-note" id="syncStatusText">
-              連携設定を入れると、日報メモ保存時と報告テンプレートコピー時に当月ブロックへ4項目を上書き同期します。
+              連携設定を入れると、日報メモ保存時と報告テンプレートコピー時に当月ブロックへ5項目を上書き同期します。
             </p>
           </div>
         </div>
@@ -370,6 +388,6 @@
 
     <div class="toast" id="toast"></div>
 
-    <script src="./assets/js/app.js?v=20260417-2"></script>
+    <script src="./assets/js/app.js?v=20260418-2"></script>
   </body>
 </html>

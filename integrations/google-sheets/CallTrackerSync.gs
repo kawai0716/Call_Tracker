@@ -40,6 +40,7 @@ function doPost(e) {
 
     if (
       !headerInfo.columns.calls ||
+      !headerInfo.columns.secondCalls ||
       !headerInfo.columns.connections ||
       !headerInfo.columns.sampleSent ||
       !headerInfo.columns.introductions
@@ -54,6 +55,7 @@ function doPost(e) {
     }
 
     writeIntegerValue(sheet, rowIndex, headerInfo.columns.calls, values.calls);
+    writeIntegerValue(sheet, rowIndex, headerInfo.columns.secondCalls, values.secondCalls);
     writeIntegerValue(sheet, rowIndex, headerInfo.columns.connections, values.connections);
     writeIntegerValue(sheet, rowIndex, headerInfo.columns.sampleSent, values.sampleSent);
     writeIntegerValue(sheet, rowIndex, headerInfo.columns.introductions, values.introductions);
@@ -64,6 +66,7 @@ function doPost(e) {
       row: rowIndex,
       updated: {
         calls: Number(values.calls || 0),
+        secondCalls: Number(values.secondCalls || 0),
         connections: Number(values.connections || 0),
         sampleSent: Number(values.sampleSent || 0),
         introductions: Number(values.introductions || 0),
@@ -158,6 +161,7 @@ function matchesHeader(value, aliases) {
 function findActualColumnsInBlock(displayValues, startRow, endRow) {
   const aliases = {
     calls: ["コール数実"],
+    secondCalls: ["2回目架電数実"],
     connections: ["担当者接続数実"],
     sampleSent: ["サンプル送付数実"],
     introductions: ["導入数新規成約実", "導入数実"],
@@ -166,6 +170,7 @@ function findActualColumnsInBlock(displayValues, startRow, endRow) {
   for (let row = startRow; row <= endRow; row += 1) {
     const columns = {
       calls: 0,
+      secondCalls: 0,
       connections: 0,
       sampleSent: 0,
       introductions: 0,
@@ -176,6 +181,10 @@ function findActualColumnsInBlock(displayValues, startRow, endRow) {
 
       if (!columns.calls && matchesHeader(cell, aliases.calls)) {
         columns.calls = col + 1;
+      }
+
+      if (!columns.secondCalls && matchesHeader(cell, aliases.secondCalls)) {
+        columns.secondCalls = col + 1;
       }
 
       if (!columns.connections && matchesHeader(cell, aliases.connections)) {
@@ -191,7 +200,7 @@ function findActualColumnsInBlock(displayValues, startRow, endRow) {
       }
     }
 
-    if (columns.calls && columns.connections && columns.sampleSent && columns.introductions) {
+    if (columns.calls && columns.secondCalls && columns.connections && columns.sampleSent && columns.introductions) {
       return { headerRow: row + 1, columns: columns };
     }
   }
@@ -200,6 +209,7 @@ function findActualColumnsInBlock(displayValues, startRow, endRow) {
     headerRow: 0,
     columns: {
       calls: 0,
+      secondCalls: 0,
       connections: 0,
       sampleSent: 0,
       introductions: 0,
