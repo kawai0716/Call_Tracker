@@ -1,80 +1,141 @@
 function doPost(e) {
   try {
     const payload = JSON.parse(e.postData.contents || "{}");
+    const trigger = String(payload.trigger || "").trim();
     const spreadsheetId = String(payload.spreadsheetId || "").trim();
     const sheetName = String(payload.sheetName || "").trim();
+    const slackWebhookUrl = String(payload.slackWebhookUrl || "").trim();
+    const reportText = String(payload.reportText || "");
     const year = Number(payload.year);
     const month = Number(payload.month);
     const day = Number(payload.day);
     const values = payload.values || {};
 
-    if (!spreadsheetId) {
-      return jsonResponse({ ok: false, error: "Missing spreadsheetId" });
-    }
-
-    if (!sheetName) {
-      return jsonResponse({ ok: false, error: "Missing sheetName" });
-    }
-
-    if (!year || !month || !day) {
-      return jsonResponse({ ok: false, error: "Missing date parts" });
-    }
-
-    const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
-    const sheet = spreadsheet.getSheetByName(sheetName);
-
-    if (!sheet) {
-      return jsonResponse({ ok: false, error: "Sheet not found" });
-    }
-
-    const dataRange = sheet.getDataRange();
-    const displayValues = dataRange.getDisplayValues();
-    const monthBlockTitle = buildMonthBlockTitle(year, month);
-    const monthBlock = findMonthBlock(displayValues, monthBlockTitle);
-
-    if (!monthBlock) {
-      return jsonResponse({ ok: false, error: "Month block not found", monthBlockTitle: monthBlockTitle });
-    }
-
-    const headerInfo = findActualColumnsInBlock(displayValues, monthBlock.startRow, monthBlock.endRow);
-
-    if (
-      !headerInfo.columns.calls ||
-      !headerInfo.columns.secondCalls ||
-      !headerInfo.columns.connections ||
-      !headerInfo.columns.sampleSent ||
-      !headerInfo.columns.introductions
-    ) {
-      return jsonResponse({ ok: false, error: "Required columns not found", monthBlockTitle: monthBlockTitle });
-    }
-
-    const rowIndex = findDayRowInBlock(displayValues, headerInfo.headerRow, monthBlock.endRow, day);
-
-    if (!rowIndex) {
-      return jsonResponse({ ok: false, error: "Day row not found", monthBlockTitle: monthBlockTitle, day: day });
-    }
-
-    writeIntegerValue(sheet, rowIndex, headerInfo.columns.calls, values.calls);
-    writeIntegerValue(sheet, rowIndex, headerInfo.columns.secondCalls, values.secondCalls);
-    writeIntegerValue(sheet, rowIndex, headerInfo.columns.connections, values.connections);
-    writeIntegerValue(sheet, rowIndex, headerInfo.columns.sampleSent, values.sampleSent);
-    writeIntegerValue(sheet, rowIndex, headerInfo.columns.introductions, values.introductions);
-
-    return jsonResponse({
+    const response = {
       ok: true,
-      monthBlockTitle: monthBlockTitle,
-      row: rowIndex,
-      updated: {
-        calls: Number(values.calls || 0),
-        secondCalls: Number(values.secondCalls || 0),
-        connections: Number(values.connections || 0),
-        sampleSent: Number(values.sampleSent || 0),
-        introductions: Number(values.introductions || 0),
-      },
-    });
+      trigger: trigger,
+    };
+
+    if (trigger === "copy_template" || trigger === "send_slack_report" || trigger === "auto_zero_fill") {
+      if (!spreadsheetId) {
+        return jsonResponse({ ok: false, error: "Missing spreadsheetId" });
+      }
+
+      if (!sheetName) {
+        return jsonResponse({ ok: false, error: "Missing sheetName" });
+      }
+
+      if (!year || !month || !day) {
+        return jsonResponse({ ok: false, error: "Missing date parts" });
+      }
+
+      const syncResult = syncSheetBlock(spreadsheetId, sheetName, year, month, day, values, trigger);
+      response.sheet = syncResult;
+    }
+
+    if (trigger === "send_slack_report") {
+      if (!slackWebhookUrl) {
+        return jsonResponse({ ok: false, error: "Missing slackWebhookUrl" });
+      }
+
+      if (!reportText) {
+        return jsonResponse({ ok: false, error: "Missing reportText" });
+      }
+
+      response.slack = postToSlack(slackWebhookUrl, reportText);
+    }
+
+    return jsonResponse(response);
   } catch (error) {
     return jsonResponse({ ok: false, error: String(error) });
   }
+}
+
+function syncSheetBlock(spreadsheetId, sheetName, year, month, day, values, trigger) {
+  const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+  const sheet = spreadsheet.getSheetByName(sheetName);
+
+  if (!sheet) {
+    throw new Error("Sheet not found");
+  }
+
+  const dataRange = sheet.getDataRange();
+  const displayValues = dataRange.getDisplayValues();
+  const monthBlockTitle = buildMonthBlockTitle(year, month);
+  const monthBlock = findMonthBlock(displayValues, monthBlockTitle);
+
+  if (!monthBlock) {
+    throw new Error("Month block not found");
+  }
+
+  const headerInfo = findActualColumnsInBlock(displayValues, monthBlock.startRow, monthBlock.endRow);
+
+  if (
+    !headerInfo.columns.calls ||
+    !headerInfo.columns.secondCalls ||
+    !headerInfo.columns.connections ||
+    !headerInfo.columns.sampleSent ||
+    !headerInfo.columns.introductions
+  ) {
+    throw new Error("Required columns not found");
+  }
+
+  const rowIndex = findDayRowInBlock(displayValues, headerInfo.headerRow, monthBlock.endRow, day);
+
+  if (!rowIndex) {
+    throw new Error("Day row not found");
+  }
+
+  if (trigger === "auto_zero_fill") {
+    const forecastColumns = findForecastColumns(displayValues[headerInfo.headerRow - 1] || []);
+
+    if (!hasForecastValue(displayValues[rowIndex - 1] || [], forecastColumns)) {
+      return {
+        monthBlockTitle: monthBlockTitle,
+        row: rowIndex,
+        skippedNoPlan: true,
+      };
+    }
+  }
+
+  writeIntegerValue(sheet, rowIndex, headerInfo.columns.calls, values.calls);
+  writeIntegerValue(sheet, rowIndex, headerInfo.columns.secondCalls, values.secondCalls);
+  writeIntegerValue(sheet, rowIndex, headerInfo.columns.connections, values.connections);
+  writeIntegerValue(sheet, rowIndex, headerInfo.columns.sampleSent, values.sampleSent);
+  writeIntegerValue(sheet, rowIndex, headerInfo.columns.introductions, values.introductions);
+
+  return {
+    monthBlockTitle: monthBlockTitle,
+    row: rowIndex,
+    updated: {
+      calls: Number(values.calls || 0),
+      secondCalls: Number(values.secondCalls || 0),
+      connections: Number(values.connections || 0),
+      sampleSent: Number(values.sampleSent || 0),
+      introductions: Number(values.introductions || 0),
+    },
+  };
+}
+
+function postToSlack(slackWebhookUrl, reportText) {
+  const response = UrlFetchApp.fetch(slackWebhookUrl, {
+    method: "post",
+    contentType: "application/json",
+    payload: JSON.stringify({
+      text: reportText,
+    }),
+    muteHttpExceptions: true,
+  });
+
+  const statusCode = response.getResponseCode();
+
+  if (statusCode < 200 || statusCode >= 300) {
+    throw new Error("Slack webhook failed: " + statusCode + " " + response.getContentText());
+  }
+
+  return {
+    statusCode: statusCode,
+  };
 }
 
 function buildMonthBlockTitle(year, month) {
@@ -216,6 +277,38 @@ function findActualColumnsInBlock(displayValues, startRow, endRow) {
       introductions: 0,
     },
   };
+}
+
+function findForecastColumns(headerRowValues) {
+  const columns = [];
+
+  for (let col = 0; col < headerRowValues.length; col += 1) {
+    if (normalizeHeader(headerRowValues[col]).indexOf("予") !== -1) {
+      columns.push(col + 1);
+    }
+  }
+
+  return columns;
+}
+
+function hasForecastValue(rowValues, forecastColumns) {
+  for (let index = 0; index < forecastColumns.length; index += 1) {
+    const rawValue = String(rowValues[forecastColumns[index] - 1] || "").trim();
+
+    if (!rawValue || rawValue === "-" || rawValue === "0" || rawValue === "0%" || rawValue === "0.0") {
+      continue;
+    }
+
+    const numericValue = Number(rawValue.replace(/[% ,]/g, ""));
+
+    if (!Number.isNaN(numericValue) && numericValue === 0) {
+      continue;
+    }
+
+    return true;
+  }
+
+  return false;
 }
 
 function findDayRowInBlock(displayValues, headerRow, endRow, day) {

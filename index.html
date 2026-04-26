@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>架電カウンター</title>
-    <link rel="stylesheet" href="./assets/css/style.css?v=20260418-3" />
+    <link rel="stylesheet" href="./assets/css/style.css?v=20260418-4" />
   </head>
   <body>
     <div class="background-glow background-glow-left"></div>
@@ -257,18 +257,27 @@
                 placeholder="例: 山田太郎"
               />
             </label>
+            <label class="field report-field-full">
+              <span class="field-label">Slack Webhook URL（任意）</span>
+              <input
+                id="slackWebhookUrlInput"
+                class="field-input"
+                placeholder="例: https://hooks.slack.com/services/..."
+              />
+            </label>
           </div>
 
           <div class="section-actions">
             <button class="secondary-button" id="saveSyncSettingsButton" type="button">連携設定を保存</button>
             <p class="inline-note" id="syncStatusText">
-              連携設定を入れると、報告テンプレートコピー時に当月ブロックへ5項目を上書き同期します。
+              連携設定を入れると、コピー時にシート同期、Slack送信時にチャンネル投稿を行えます。
             </p>
           </div>
         </div>
 
         <div class="section-actions">
           <button class="accent-button" id="copyTemplateButton">テンプレートをコピー</button>
+          <button class="secondary-button" id="sendSlackButton" type="button">Slackへ送信</button>
         </div>
 
         <label class="field preview-field">
@@ -386,6 +395,6 @@
 
     <div class="toast" id="toast"></div>
 
-    <script src="./assets/js/app.js?v=20260418-3"></script>
+    <script src="./assets/js/app.js?v=20260418-4"></script>
   </body>
 </html>

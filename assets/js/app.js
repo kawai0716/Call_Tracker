@@ -41,6 +41,7 @@ const elements = {
   appsScriptUrlInput: document.getElementById("appsScriptUrlInput"),
   spreadsheetUrlInput: document.getElementById("spreadsheetUrlInput"),
   spreadsheetSheetNameInput: document.getElementById("spreadsheetSheetNameInput"),
+  slackWebhookUrlInput: document.getElementById("slackWebhookUrlInput"),
   saveSyncSettingsButton: document.getElementById("saveSyncSettingsButton"),
   syncStatusText: document.getElementById("syncStatusText"),
   locationSelect: document.getElementById("locationSelect"),
@@ -49,6 +50,7 @@ const elements = {
   workedHoursInput: document.getElementById("workedHoursInput"),
   reflectionInput: document.getElementById("reflectionInput"),
   copyTemplateButton: document.getElementById("copyTemplateButton"),
+  sendSlackButton: document.getElementById("sendSlackButton"),
   templatePreview: document.getElementById("templatePreview"),
   recordingStatusText: document.getElementById("recordingStatusText"),
   recordingTimerText: document.getElementById("recordingTimerText"),
@@ -80,10 +82,12 @@ function createDefaultState() {
   return {
     records: {},
     dailyGoals: {},
+    sheetSyncedDates: {},
     syncSettings: {
       appsScriptUrl: "",
       spreadsheetUrl: "",
       sheetName: "",
+      slackWebhookUrl: "",
       statusText: "",
       statusLevel: "",
       syncedAt: "",
@@ -131,6 +135,14 @@ function sanitizeState(candidate) {
   if (candidate.dailyGoals && typeof candidate.dailyGoals === "object") {
     for (const [dateKey, goals] of Object.entries(candidate.dailyGoals)) {
       base.dailyGoals[dateKey] = sanitizeGoals(goals);
+    }
+  }
+
+  if (candidate.sheetSyncedDates && typeof candidate.sheetSyncedDates === "object") {
+    for (const [dateKey, syncedAt] of Object.entries(candidate.sheetSyncedDates)) {
+      if (typeof syncedAt === "string" && syncedAt) {
+        base.sheetSyncedDates[dateKey] = syncedAt;
+      }
     }
   }
 
@@ -241,6 +253,8 @@ function sanitizeSyncSettings(settings) {
         ? settings.spreadsheetUrl.trim().slice(0, 500)
         : "",
     sheetName: typeof settings?.sheetName === "string" ? settings.sheetName.trim().slice(0, 80) : "",
+    slackWebhookUrl:
+      typeof settings?.slackWebhookUrl === "string" ? settings.slackWebhookUrl.trim().slice(0, 500) : "",
     statusText: typeof settings?.statusText === "string" ? settings.statusText.trim().slice(0, 240) : "",
     statusLevel:
       settings?.statusLevel === "success" || settings?.statusLevel === "error" || settings?.statusLevel === "info"
@@ -260,6 +274,10 @@ function extractSpreadsheetId(spreadsheetUrl) {
   return match ? match[1] : "";
 }
 
+function isSlackWebhookUrl(value) {
+  return /^https:\/\/hooks\.slack(?:-gov)?\.com\/services\/.+/.test(String(value || "").trim());
+}
+
 function setSyncStatus(message, statusLevel = "info", syncedAt = "") {
   state.syncSettings.statusText = String(message || "").trim().slice(0, 240);
   state.syncSettings.statusLevel = statusLevel;
@@ -276,14 +294,15 @@ function renderSyncSettings() {
   elements.appsScriptUrlInput.value = syncSettings.appsScriptUrl;
   elements.spreadsheetUrlInput.value = syncSettings.spreadsheetUrl;
   elements.spreadsheetSheetNameInput.value = syncSettings.sheetName;
+  elements.slackWebhookUrlInput.value = syncSettings.slackWebhookUrl;
 
   if (syncSettings.statusText) {
     elements.syncStatusText.textContent = syncSettings.statusText;
   } else if (hasConfigured) {
-    elements.syncStatusText.textContent = "連携設定は保存済みです。コピー時にメンバータブ内の当月ブロックへ同期します。";
+    elements.syncStatusText.textContent = "連携設定は保存済みです。コピー時にシート同期、Slack送信時にチャンネル投稿できます。";
   } else {
     elements.syncStatusText.textContent =
-      "連携設定を入れると、報告テンプレートコピー時にメンバータブ内の当月ブロックへ5項目を上書き同期します。";
+      "連携設定を入れると、コピー時にシート同期、Slack送信時にチャンネル投稿を行えます。";
   }
 
   elements.syncStatusText.dataset.statusLevel = syncSettings.statusLevel || "info";
@@ -295,13 +314,14 @@ function saveSyncSettings() {
     appsScriptUrl: elements.appsScriptUrlInput.value,
     spreadsheetUrl: elements.spreadsheetUrlInput.value,
     sheetName: elements.spreadsheetSheetNameInput.value,
+    slackWebhookUrl: elements.slackWebhookUrlInput.value,
   });
   saveState();
   renderSyncSettings();
   showToast("連携設定を保存しました");
 }
 
-function buildSpreadsheetSyncPayload(trigger) {
+function buildAppsScriptPayload(trigger, reportText = "") {
   const todayKey = getTodayKey();
   const [year, month, day] = todayKey.split("-");
   const todayRecord = getTodayRecord();
@@ -316,6 +336,8 @@ function buildSpreadsheetSyncPayload(trigger) {
     spreadsheetId,
     spreadsheetUrl: state.syncSettings.spreadsheetUrl,
     sheetName: state.syncSettings.sheetName,
+    slackWebhookUrl: state.syncSettings.slackWebhookUrl,
+    reportText,
     values: {
       calls: todayRecord.calls,
       secondCalls: todayRecord.secondCalls,
@@ -326,21 +348,14 @@ function buildSpreadsheetSyncPayload(trigger) {
   };
 }
 
-async function syncSpreadsheet(trigger) {
+async function postToAppsScript(payload, loadingMessage, successMessage, fallbackMessage, errorMessage) {
   const syncSettings = state.syncSettings;
 
-  if (!syncSettings.appsScriptUrl || !syncSettings.spreadsheetUrl || !syncSettings.sheetName) {
-    return;
+  if (!syncSettings.appsScriptUrl) {
+    return null;
   }
 
-  const payload = buildSpreadsheetSyncPayload(trigger);
-
-  if (!payload.spreadsheetId) {
-    setSyncStatus("スプレッドシートURLからIDを読み取れませんでした。URLを確認してください。", "error");
-    return;
-  }
-
-  setSyncStatus("スプレッドシートへ同期しています…", "info");
+  setSyncStatus(loadingMessage, "info");
 
   try {
     const response = await fetch(syncSettings.appsScriptUrl, {
@@ -363,13 +378,10 @@ async function syncSpreadsheet(trigger) {
     }
 
     const syncedAt = new Date().toISOString();
-    setSyncStatus(
-      `${formatDate(payload.dateKey)} の実績をメンバータブ内の当月ブロックへ同期しました。`,
-      "success",
-      syncedAt,
-    );
+    setSyncStatus(successMessage(payload), "success", syncedAt);
+    return result;
   } catch (error) {
-    console.error("Spreadsheet sync failed:", error);
+    console.error("Apps Script request failed:", error);
 
     try {
       await fetch(syncSettings.appsScriptUrl, {
@@ -381,16 +393,44 @@ async function syncSpreadsheet(trigger) {
         body: JSON.stringify(payload),
       });
 
-      setSyncStatus(
-        "スプレッドシートへ送信しました。反映結果はシート側で確認してください。",
-        "info",
-        new Date().toISOString(),
-      );
+      setSyncStatus(fallbackMessage, "info", new Date().toISOString());
+      return { ok: true, uncertain: true };
     } catch (fallbackError) {
-      console.error("Spreadsheet sync fallback failed:", fallbackError);
-      setSyncStatus("スプレッドシート連携に失敗しました。Apps Script URL と共有権限を確認してください。", "error");
+      console.error("Apps Script fallback failed:", fallbackError);
+      setSyncStatus(errorMessage, "error");
+      return null;
     }
   }
+}
+
+async function syncSpreadsheet(trigger) {
+  await syncSpreadsheetForDate(trigger, getTodayKey(), getTodayRecord());
+}
+
+async function sendSlackReport() {
+  persistReportFields();
+
+  if (!state.syncSettings.appsScriptUrl) {
+    setSyncStatus("Apps Script URL を設定してください。", "error");
+    return;
+  }
+
+  if (!isSlackWebhookUrl(state.syncSettings.slackWebhookUrl)) {
+    setSyncStatus("Slack Webhook URL を確認してください。", "error");
+    return;
+  }
+
+  const reportText = buildTemplate();
+  const payload = buildAppsScriptPayload("send_slack_report", reportText);
+
+  await postToAppsScript(
+    payload,
+    "Slackへ送信しています…",
+    () => "Slack へ報告を送信しました。",
+    "Slackへ送信しました。結果はチャンネル側で確認してください。",
+    "Slack送信に失敗しました。Webhook URL と Apps Script 設定を確認してください。",
+  );
+  showToast("Slackへ送信しました");
 }
 
 function renderActivePage() {
@@ -892,9 +932,9 @@ function getCalendarDateKey(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
-function getTodayFourteen(date = new Date()) {
+function getBusinessDayCutoff(date = new Date()) {
   const cutoff = new Date(date);
-  cutoff.setHours(14, 0, 0, 0);
+  cutoff.setHours(16, 0, 0, 0);
   return cutoff;
 }
 
@@ -918,7 +958,7 @@ function getBusinessDate() {
     return new Date(`${state.businessDayOverride.dateKey}T00:00:00`);
   }
 
-  if (now.getHours() < 14) {
+  if (now < getBusinessDayCutoff(now)) {
     const previous = new Date(now);
     previous.setDate(previous.getDate() - 1);
     return previous;
@@ -1087,6 +1127,10 @@ function toIntOrNull(value) {
 
 function goalLabel(value) {
   return value === null ? "/" : String(value);
+}
+
+function hasConfiguredGoals(goals) {
+  return Object.values(sanitizeGoals(goals)).some((value) => value !== null);
 }
 
 function getTodayRecord() {
@@ -1431,7 +1475,7 @@ function advanceBusinessDay() {
 
   state.businessDayOverride = {
     dateKey: currentCalendarDateKey,
-    expiresAt: getTodayFourteen(now).toISOString(),
+    expiresAt: getBusinessDayCutoff(now).toISOString(),
   };
   saveState();
   render();
@@ -1462,7 +1506,7 @@ function alignBusinessDayToCurrentDate() {
   if (currentBusinessDateKey !== currentCalendarDateKey) {
     state.businessDayOverride = {
       dateKey: currentCalendarDateKey,
-      expiresAt: getTodayFourteen(now).toISOString(),
+      expiresAt: getBusinessDayCutoff(now).toISOString(),
     };
     return currentCalendarDateKey;
   }
@@ -1486,6 +1530,118 @@ async function copyTemplate() {
   elements.templatePreview.value = text;
   showToast("テンプレートをコピーしました");
   await syncSpreadsheet("copy_template");
+}
+
+function markDateAsSheetSynced(dateKey) {
+  state.sheetSyncedDates[dateKey] = new Date().toISOString();
+  saveState();
+}
+
+function buildZeroRecord() {
+  return sanitizeRecord({});
+}
+
+function getRecentUnsyncedDateKeys(limit = 10) {
+  const currentBusinessDate = getBusinessDate();
+  const keys = [];
+
+  for (let offset = 1; offset <= limit; offset += 1) {
+    const target = new Date(currentBusinessDate);
+    target.setDate(target.getDate() - offset);
+    keys.push(getCalendarDateKey(target));
+  }
+
+  return keys;
+}
+
+async function syncSpreadsheetForDate(trigger, dateKey, recordOverride) {
+  const syncSettings = state.syncSettings;
+
+  if (!syncSettings.appsScriptUrl || !syncSettings.spreadsheetUrl || !syncSettings.sheetName) {
+    return false;
+  }
+
+  const spreadsheetId = extractSpreadsheetId(syncSettings.spreadsheetUrl);
+
+  if (!spreadsheetId) {
+    setSyncStatus("スプレッドシートURLからIDを読み取れませんでした。URLを確認してください。", "error");
+    return false;
+  }
+
+  const safeRecord = sanitizeRecord(recordOverride);
+  const [year, month, day] = dateKey.split("-");
+  const payload = {
+    trigger,
+    dateKey,
+    year: Number(year),
+    month: Number(month),
+    day: Number(day),
+    spreadsheetId,
+    spreadsheetUrl: syncSettings.spreadsheetUrl,
+    sheetName: syncSettings.sheetName,
+    slackWebhookUrl: syncSettings.slackWebhookUrl,
+    reportText: "",
+    values: {
+      calls: safeRecord.calls,
+      secondCalls: safeRecord.secondCalls,
+      connections: safeRecord.connections,
+      sampleSent: safeRecord.sampleSent,
+      introductions: safeRecord.introductions,
+    },
+  };
+
+  const result = await postToAppsScript(
+    payload,
+    "スプレッドシートへ同期しています…",
+    (safePayload) => `${formatDate(safePayload.dateKey)} の実績をメンバータブ内の当月ブロックへ同期しました。`,
+    "スプレッドシートへ送信しました。反映結果はシート側で確認してください。",
+    "スプレッドシート連携に失敗しました。Apps Script URL と共有権限を確認してください。",
+  );
+
+  if (result && !result.uncertain && !result.sheet?.skippedNoPlan) {
+    markDateAsSheetSynced(dateKey);
+  }
+
+  return result;
+}
+
+async function syncPendingZeroDays() {
+  const candidateDates = getRecentUnsyncedDateKeys();
+
+  for (const dateKey of candidateDates) {
+    if (state.sheetSyncedDates[dateKey]) {
+      continue;
+    }
+
+    const existingRecord = sanitizeRecord(state.records[dateKey] || {});
+
+    if (isMeaningfulRecord(existingRecord)) {
+      continue;
+    }
+
+    await syncSpreadsheetForDate("auto_zero_fill", dateKey, buildZeroRecord());
+  }
+}
+
+async function refreshBusinessDayState() {
+  const previousBusinessDateKey = refreshBusinessDayState.lastBusinessDateKey || "";
+  const nextBusinessDateKey = getTodayKey();
+
+  if (!previousBusinessDateKey) {
+    await syncPendingZeroDays();
+    refreshBusinessDayState.lastBusinessDateKey = nextBusinessDateKey;
+    render();
+    return;
+  }
+
+  if (previousBusinessDateKey !== nextBusinessDateKey) {
+    await syncPendingZeroDays();
+    render();
+    refreshBusinessDayState.lastBusinessDateKey = nextBusinessDateKey;
+    return;
+  }
+
+  refreshBusinessDayState.lastBusinessDateKey = nextBusinessDateKey;
 }
 
 document.addEventListener("click", (event) => {
@@ -1622,6 +1778,7 @@ elements.resetTodayButton.addEventListener("click", () => {
 
 elements.saveGoalsButton.addEventListener("click", saveGoals);
 elements.copyTemplateButton.addEventListener("click", copyTemplate);
+elements.sendSlackButton.addEventListener("click", sendSlackReport);
 
 [
   elements.goalCallsInput,
@@ -1646,6 +1803,8 @@ elements.copyTemplateButton.addEventListener("click", copyTemplate);
 render();
 renderRecordingHistory();
 refreshRecordingHistory();
+refreshBusinessDayState();
+window.setInterval(refreshBusinessDayState, 60 * 1000);
 
 if (goalsMissing(getCurrentGoals())) {
   showToast(`${formatDate(getTodayKey())} の目標を入力してください`, true);
