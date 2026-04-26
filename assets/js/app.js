@@ -3,6 +3,9 @@ const RECORDING_DB_NAME = "personal-call-tracker-audio-v1";
 const RECORDING_STORE_NAME = "recordings";
 const MAX_RECORDING_HISTORY = 5;
 const PAGE_KEYS = ["dashboard", "history", "recording"];
+// Shared Apps Script URL for all members. Update this when a new deployment URL is issued.
+const SHARED_APPS_SCRIPT_URL =
+  "https://script.google.com/macros/s/AKfycbxbunj-D1HAhmQTFlSNM3sMBCdHuCk-i1GUDLZ6u5DZ375BP3vNYdxwkcpkrJ7Oca2G/exec";
 
 const elements = {
   todayLabel: document.getElementById("todayLabel"),
@@ -38,7 +41,6 @@ const elements = {
   goalConnectionsInput: document.getElementById("goalConnectionsInput"),
   saveGoalsButton: document.getElementById("saveGoalsButton"),
   goalsStatusText: document.getElementById("goalsStatusText"),
-  appsScriptUrlInput: document.getElementById("appsScriptUrlInput"),
   spreadsheetUrlInput: document.getElementById("spreadsheetUrlInput"),
   spreadsheetSheetNameInput: document.getElementById("spreadsheetSheetNameInput"),
   slackWebhookUrlInput: document.getElementById("slackWebhookUrlInput"),
@@ -274,6 +276,10 @@ function extractSpreadsheetId(spreadsheetUrl) {
   return match ? match[1] : "";
 }
 
+function getAppsScriptUrl() {
+  return SHARED_APPS_SCRIPT_URL || state.syncSettings.appsScriptUrl || "";
+}
+
 function isSlackWebhookUrl(value) {
   return /^https:\/\/hooks\.slack(?:-gov)?\.com\/services\/.+/.test(String(value || "").trim());
 }
@@ -288,10 +294,8 @@ function setSyncStatus(message, statusLevel = "info", syncedAt = "") {
 
 function renderSyncSettings() {
   const syncSettings = state.syncSettings;
-  const hasConfigured =
-    Boolean(syncSettings.appsScriptUrl) && Boolean(syncSettings.spreadsheetUrl) && Boolean(syncSettings.sheetName);
+  const hasConfigured = Boolean(getAppsScriptUrl()) && Boolean(syncSettings.spreadsheetUrl) && Boolean(syncSettings.sheetName);
 
-  elements.appsScriptUrlInput.value = syncSettings.appsScriptUrl;
   elements.spreadsheetUrlInput.value = syncSettings.spreadsheetUrl;
   elements.spreadsheetSheetNameInput.value = syncSettings.sheetName;
   elements.slackWebhookUrlInput.value = syncSettings.slackWebhookUrl;
@@ -311,7 +315,7 @@ function renderSyncSettings() {
 function saveSyncSettings() {
   state.syncSettings = sanitizeSyncSettings({
     ...state.syncSettings,
-    appsScriptUrl: elements.appsScriptUrlInput.value,
+    appsScriptUrl: state.syncSettings.appsScriptUrl,
     spreadsheetUrl: elements.spreadsheetUrlInput.value,
     sheetName: elements.spreadsheetSheetNameInput.value,
     slackWebhookUrl: elements.slackWebhookUrlInput.value,
@@ -349,16 +353,16 @@ function buildAppsScriptPayload(trigger, reportText = "") {
 }
 
 async function postToAppsScript(payload, loadingMessage, successMessage, fallbackMessage, errorMessage) {
-  const syncSettings = state.syncSettings;
+  const appsScriptUrl = getAppsScriptUrl();
 
-  if (!syncSettings.appsScriptUrl) {
+  if (!appsScriptUrl) {
     return null;
   }
 
   setSyncStatus(loadingMessage, "info");
 
   try {
-    const response = await fetch(syncSettings.appsScriptUrl, {
+    const response = await fetch(appsScriptUrl, {
       method: "POST",
       headers: {
         "Content-Type": "text/plain;charset=utf-8",
@@ -384,7 +388,7 @@ async function postToAppsScript(payload, loadingMessage, successMessage, fallbac
     console.error("Apps Script request failed:", error);
 
     try {
-      await fetch(syncSettings.appsScriptUrl, {
+      await fetch(appsScriptUrl, {
         method: "POST",
         mode: "no-cors",
         headers: {
@@ -410,8 +414,8 @@ async function syncSpreadsheet(trigger) {
 async function sendSlackReport() {
   persistReportFields();
 
-  if (!state.syncSettings.appsScriptUrl) {
-    setSyncStatus("Apps Script URL を設定してください。", "error");
+  if (!getAppsScriptUrl()) {
+    setSyncStatus("Apps Script URL は運用側で未設定です。", "error");
     return;
   }
 
@@ -1557,7 +1561,7 @@ function getRecentUnsyncedDateKeys(limit = 10) {
 async function syncSpreadsheetForDate(trigger, dateKey, recordOverride) {
   const syncSettings = state.syncSettings;
 
-  if (!syncSettings.appsScriptUrl || !syncSettings.spreadsheetUrl || !syncSettings.sheetName) {
+  if (!getAppsScriptUrl() || !syncSettings.spreadsheetUrl || !syncSettings.sheetName) {
     return false;
   }
 

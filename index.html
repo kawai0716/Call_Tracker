@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>架電カウンター</title>
-    <link rel="stylesheet" href="./assets/css/style.css?v=20260418-4" />
+    <link rel="stylesheet" href="./assets/css/style.css?v=20260427-1" />
   </head>
   <body>
     <div class="background-glow background-glow-left"></div>
@@ -233,14 +233,6 @@
 
           <div class="report-grid">
             <label class="field report-field-full">
-              <span class="field-label">Apps Script URL</span>
-              <input
-                id="appsScriptUrlInput"
-                class="field-input"
-                placeholder="例: https://script.google.com/macros/s/.../exec"
-              />
-            </label>
-            <label class="field report-field-full">
               <span class="field-label">スプレッドシートURL</span>
               <input
                 id="spreadsheetUrlInput"
@@ -270,7 +262,7 @@
           <div class="section-actions">
             <button class="secondary-button" id="saveSyncSettingsButton" type="button">連携設定を保存</button>
             <p class="inline-note" id="syncStatusText">
-              連携設定を入れると、コピー時にシート同期、Slack送信時にチャンネル投稿を行えます。
+              連携設定を入れると、コピー時にシート同期、Slack送信時にチャンネル投稿を行えます。Apps Script URL は共通設定です。
             </p>
           </div>
         </div>
@@ -395,6 +387,6 @@
 
     <div class="toast" id="toast"></div>
 
-    <script src="./assets/js/app.js?v=20260418-4"></script>
+    <script src="./assets/js/app.js?v=20260427-1"></script>
   </body>
 </html>
