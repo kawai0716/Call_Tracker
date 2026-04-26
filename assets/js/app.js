@@ -43,7 +43,6 @@ const elements = {
   goalsStatusText: document.getElementById("goalsStatusText"),
   spreadsheetUrlInput: document.getElementById("spreadsheetUrlInput"),
   spreadsheetSheetNameInput: document.getElementById("spreadsheetSheetNameInput"),
-  slackWebhookUrlInput: document.getElementById("slackWebhookUrlInput"),
   saveSyncSettingsButton: document.getElementById("saveSyncSettingsButton"),
   syncStatusText: document.getElementById("syncStatusText"),
   locationSelect: document.getElementById("locationSelect"),
@@ -52,7 +51,6 @@ const elements = {
   workedHoursInput: document.getElementById("workedHoursInput"),
   reflectionInput: document.getElementById("reflectionInput"),
   copyTemplateButton: document.getElementById("copyTemplateButton"),
-  sendSlackButton: document.getElementById("sendSlackButton"),
   templatePreview: document.getElementById("templatePreview"),
   recordingStatusText: document.getElementById("recordingStatusText"),
   recordingTimerText: document.getElementById("recordingTimerText"),
@@ -280,10 +278,6 @@ function getAppsScriptUrl() {
   return SHARED_APPS_SCRIPT_URL || state.syncSettings.appsScriptUrl || "";
 }
 
-function isSlackWebhookUrl(value) {
-  return /^https:\/\/hooks\.slack(?:-gov)?\.com\/services\/.+/.test(String(value || "").trim());
-}
-
 function setSyncStatus(message, statusLevel = "info", syncedAt = "") {
   state.syncSettings.statusText = String(message || "").trim().slice(0, 240);
   state.syncSettings.statusLevel = statusLevel;
@@ -298,15 +292,13 @@ function renderSyncSettings() {
 
   elements.spreadsheetUrlInput.value = syncSettings.spreadsheetUrl;
   elements.spreadsheetSheetNameInput.value = syncSettings.sheetName;
-  elements.slackWebhookUrlInput.value = syncSettings.slackWebhookUrl;
 
   if (syncSettings.statusText) {
     elements.syncStatusText.textContent = syncSettings.statusText;
   } else if (hasConfigured) {
-    elements.syncStatusText.textContent = "連携設定は保存済みです。コピー時にシート同期、Slack送信時にチャンネル投稿できます。";
+    elements.syncStatusText.textContent = "連携設定は保存済みです。コピー時にシート同期できます。";
   } else {
-    elements.syncStatusText.textContent =
-      "連携設定を入れると、コピー時にシート同期、Slack送信時にチャンネル投稿を行えます。";
+    elements.syncStatusText.textContent = "連携設定を入れると、コピー時にシート同期を行えます。";
   }
 
   elements.syncStatusText.dataset.statusLevel = syncSettings.statusLevel || "info";
@@ -318,7 +310,6 @@ function saveSyncSettings() {
     appsScriptUrl: state.syncSettings.appsScriptUrl,
     spreadsheetUrl: elements.spreadsheetUrlInput.value,
     sheetName: elements.spreadsheetSheetNameInput.value,
-    slackWebhookUrl: elements.slackWebhookUrlInput.value,
   });
   saveState();
   renderSyncSettings();
@@ -340,7 +331,6 @@ function buildAppsScriptPayload(trigger, reportText = "") {
     spreadsheetId,
     spreadsheetUrl: state.syncSettings.spreadsheetUrl,
     sheetName: state.syncSettings.sheetName,
-    slackWebhookUrl: state.syncSettings.slackWebhookUrl,
     reportText,
     values: {
       calls: todayRecord.calls,
@@ -409,32 +399,6 @@ async function postToAppsScript(payload, loadingMessage, successMessage, fallbac
 
 async function syncSpreadsheet(trigger) {
   await syncSpreadsheetForDate(trigger, getTodayKey(), getTodayRecord());
-}
-
-async function sendSlackReport() {
-  persistReportFields();
-
-  if (!getAppsScriptUrl()) {
-    setSyncStatus("Apps Script URL は運用側で未設定です。", "error");
-    return;
-  }
-
-  if (!isSlackWebhookUrl(state.syncSettings.slackWebhookUrl)) {
-    setSyncStatus("Slack Webhook URL を確認してください。", "error");
-    return;
-  }
-
-  const reportText = buildTemplate();
-  const payload = buildAppsScriptPayload("send_slack_report", reportText);
-
-  await postToAppsScript(
-    payload,
-    "Slackへ送信しています…",
-    () => "Slack へ報告を送信しました。",
-    "Slackへ送信しました。結果はチャンネル側で確認してください。",
-    "Slack送信に失敗しました。Webhook URL と Apps Script 設定を確認してください。",
-  );
-  showToast("Slackへ送信しました");
 }
 
 function renderActivePage() {
@@ -1583,7 +1547,6 @@ async function syncSpreadsheetForDate(trigger, dateKey, recordOverride) {
     spreadsheetId,
     spreadsheetUrl: syncSettings.spreadsheetUrl,
     sheetName: syncSettings.sheetName,
-    slackWebhookUrl: syncSettings.slackWebhookUrl,
     reportText: "",
     values: {
       calls: safeRecord.calls,
@@ -1782,7 +1745,6 @@ elements.resetTodayButton.addEventListener("click", () => {
 
 elements.saveGoalsButton.addEventListener("click", saveGoals);
 elements.copyTemplateButton.addEventListener("click", copyTemplate);
-elements.sendSlackButton.addEventListener("click", sendSlackReport);
 
 [
   elements.goalCallsInput,
