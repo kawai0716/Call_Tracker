@@ -87,7 +87,6 @@ function createDefaultState() {
       appsScriptUrl: "",
       spreadsheetUrl: "",
       sheetName: "",
-      slackWebhookUrl: "",
       statusText: "",
       statusLevel: "",
       syncedAt: "",
@@ -253,8 +252,6 @@ function sanitizeSyncSettings(settings) {
         ? settings.spreadsheetUrl.trim().slice(0, 500)
         : "",
     sheetName: typeof settings?.sheetName === "string" ? settings.sheetName.trim().slice(0, 80) : "",
-    slackWebhookUrl:
-      typeof settings?.slackWebhookUrl === "string" ? settings.slackWebhookUrl.trim().slice(0, 500) : "",
     statusText: typeof settings?.statusText === "string" ? settings.statusText.trim().slice(0, 240) : "",
     statusLevel:
       settings?.statusLevel === "success" || settings?.statusLevel === "error" || settings?.statusLevel === "info"
